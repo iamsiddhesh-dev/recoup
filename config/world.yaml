@@ -259,6 +259,20 @@ customers:
     english: 0.38
     regional: 0.08
 
+  # [ASSUMPTION] How much more or less likely a customer is to act, by channel,
+  # relative to SMS. Indian engagement patterns: WhatsApp is where people
+  # actually read things, a phone call is hardest to ignore and hardest to
+  # justify, and transactional email largely goes unopened.
+  #
+  # Without this every channel looks equally effective and the agent simply picks
+  # the cheapest one — which is email, forever. That produced an agent that never
+  # used WhatsApp at all: correct arithmetic over a wrong model.
+  channel_response:
+    whatsapp: 1.35
+    sms: 1.00
+    voice: 1.60
+    email: 0.45
+
 # ---------------------------------------------------------------------------
 # Issuer downtime
 # ---------------------------------------------------------------------------

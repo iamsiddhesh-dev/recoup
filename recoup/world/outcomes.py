@@ -116,28 +116,40 @@ class Outcomes:
     # -- customer actions ----------------------------------------------------
 
     def nudge_lands(
-        self, customer: Customer, payment_id: str, contact_number: int
+        self,
+        customer: Customer,
+        payment_id: str,
+        contact_number: int,
+        channel: str = "sms",
     ) -> bool:
         """Whether a contact produces action.
 
-        Decays with prior contacts: the fourth message about one failed payment
-        persuades nobody, and for an annoyance-sensitive customer it is worse than
-        nothing. The agent pays a modelled penalty for repeat contact; here that
-        penalty turns out to have been real.
+        Two things move it. Channel, because a WhatsApp message and a
+        transactional email are not the same ask — and if they were, an agent
+        optimising cost would rationally email forever. And prior contacts,
+        because the fourth message about one failed payment persuades nobody, and
+        for an annoyance-sensitive customer it is worse than nothing. The agent
+        pays a modelled penalty for repeat contact; here that penalty turns out to
+        have been real.
         """
         decay = 1.0 / (1.0 + customer.annoyance_sensitivity * max(0, contact_number - 1))
+        channel_factor = self._config.customers.channel_response.get(channel, 1.0)
         draw = self._draw("nudge", payment_id, contact_number)
-        return draw < customer.nudge_response * decay
+        return draw < customer.nudge_response * decay * channel_factor
 
     def link_completed(
-        self, customer: Customer, payment_id: str, contact_number: int
+        self,
+        customer: Customer,
+        payment_id: str,
+        contact_number: int,
+        channel: str = "sms",
     ) -> bool:
         """Whether a customer who opened a recovery link finishes paying.
 
         Strictly harder than responding to a nudge: they have to re-enter an
         instrument. Modelled as responsiveness with a fixed completion haircut.
         """
-        if not self.nudge_lands(customer, payment_id, contact_number):
+        if not self.nudge_lands(customer, payment_id, contact_number, channel):
             return False
         draw = self._draw("link", payment_id, contact_number)
         return draw < 0.68
