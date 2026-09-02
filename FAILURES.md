@@ -84,3 +84,34 @@ source, so the assumption cannot quietly return.
 test mode. Twenty are still `[ASSUMPTION]`. The first one checked was half wrong,
 which is the honest prior for the others, and the reason those rows are tagged in
 the config rather than presented as fact.
+
+---
+
+## The rule against re-debiting a revoked mandate was silently inert
+
+**Found by:** the first test written against the compliance gate.
+
+`config/compliance.yaml` keyed the hard stop as `MANDATE_REVOKED`. That is a
+Razorpay *reason* string. The agent's taxonomy calls the cause `MANDATE_PROBLEM`.
+So `hard_stop_for(MANDATE_PROBLEM)` looked up a key that did not exist, returned
+`None`, and the gate waved the retry through.
+
+The rule read correctly. It was in the right file, with a prose justification
+explaining why re-debiting a withdrawn authorisation is unauthorised regardless of
+outcome. It parsed. It validated. It did nothing.
+
+This is the worst shape a bug can take in this project. Every other failure here
+made something visibly wrong — amounts too small, retries that could not execute,
+error fields that did not match. This one made a compliance control *look* present
+while being absent, and it was the single most legally consequential rule in the
+file. Nothing failed. Coverage did not drop. A demo would have looked fine.
+
+**Fixed:** corrected the key, and added a load-time validator asserting every
+`hard_stops` key is a real `FailureCause` — a rule that names something the system
+has never heard of now refuses to load rather than quietly matching nothing.
+
+**What it changed about how the rest is written.** Config that is looked up by
+string is config that can miss silently. Everywhere a key has to correspond to
+something in code, that correspondence is now checked at load time rather than
+assumed, and the same reasoning is why `world.yaml` mixtures are validated on load
+rather than trusted.
