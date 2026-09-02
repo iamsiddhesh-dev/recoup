@@ -27,6 +27,7 @@ from datetime import timedelta
 from typing import Protocol
 
 from recoup.agent.actions import ActionKind, Candidate, Decision
+from recoup.agent.classify import Classifier
 from recoup.agent.compliance import ComplianceGate
 from recoup.agent.config import ComplianceConfig, PolicyConfig
 from recoup.agent.context import DecisionContext
@@ -36,6 +37,7 @@ from recoup.agent.policy import PolicyEngine
 class Arm(Protocol):
     name: str
     description: str
+    classifier: Classifier
 
     def decide(self, context: DecisionContext) -> Decision: ...
 
@@ -64,6 +66,7 @@ class NaiveRetryArm:
     def __init__(self, policy: PolicyConfig, compliance: ComplianceConfig) -> None:
         self._policy = policy
         self.gate = ComplianceGate(compliance)
+        self.classifier = Classifier()
 
     def reset(self) -> None:
         self.gate.reset()
@@ -113,6 +116,7 @@ class ContactOnlyArm:
         self._engine = PolicyEngine(policy)
         self._threshold = policy.ev_threshold_paise
         self.gate = ComplianceGate(compliance)
+        self.classifier = Classifier()
 
     def reset(self) -> None:
         self.gate.reset()
@@ -144,15 +148,29 @@ class ContactOnlyArm:
 
 
 class RecoupArm:
-    """The product: rank every action by expected value, take the best permitted."""
+    """The product: rank every action by expected value, take the best permitted.
 
-    name = "recoup_agent"
-    description = "expected-value ranking over all actions, compliance-gated"
+    Instantiated twice in the experiment — once with the LLM classifier fallback
+    and once without. That pair is the ablation, and it is the only honest way to
+    answer "what did the model add", which is a question this project should be
+    able to answer with a number rather than an assertion.
+    """
 
-    def __init__(self, policy: PolicyConfig, compliance: ComplianceConfig) -> None:
+    def __init__(
+        self,
+        policy: PolicyConfig,
+        compliance: ComplianceConfig,
+        classifier: Classifier | None = None,
+        *,
+        name: str = "recoup_agent",
+        description: str = "expected-value ranking over all actions, compliance-gated",
+    ) -> None:
+        self.name = name
+        self.description = description
         self._engine = PolicyEngine(policy)
         self._threshold = policy.ev_threshold_paise
         self.gate = ComplianceGate(compliance)
+        self.classifier = classifier or Classifier()
 
     def reset(self) -> None:
         self.gate.reset()
@@ -192,9 +210,33 @@ def _stopped(context: DecisionContext, reason: str, vetoes=None) -> Decision:
     )
 
 
-def build_arms(policy: PolicyConfig, compliance: ComplianceConfig) -> list[Arm]:
-    return [
+def build_arms(
+    policy: PolicyConfig,
+    compliance: ComplianceConfig,
+    llm_classifier: Classifier | None = None,
+) -> list[Arm]:
+    """The experiment.
+
+    When an LLM-backed classifier is supplied, the agent appears twice: with the
+    fallback and without. Their difference is the model's measured contribution —
+    reported whatever it turns out to be, including if it is small.
+    """
+    arms: list[Arm] = [
         NaiveRetryArm(policy, compliance),
         ContactOnlyArm(policy, compliance),
-        RecoupArm(policy, compliance),
     ]
+
+    if llm_classifier is not None:
+        arms.append(
+            RecoupArm(
+                policy,
+                compliance,
+                name="recoup_agent_no_llm",
+                description="deterministic rules only; unclassified failures stay unclassified",
+            )
+        )
+        arms.append(RecoupArm(policy, compliance, llm_classifier))
+    else:
+        arms.append(RecoupArm(policy, compliance))
+
+    return arms
