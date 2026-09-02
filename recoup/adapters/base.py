@@ -156,3 +156,13 @@ class Notifier(Protocol):
     name: str
 
     def send(self, request: NudgeRequest) -> NudgeResult: ...
+
+    def consented_channels(self, customer_ref: str) -> set[Channel]:
+        """Which channels this customer has agreed to.
+
+        Owned by the messaging layer rather than looked up from anywhere else:
+        consent is a fact the merchant already holds, and the provider is where
+        it is enforced in production. Putting it here means the compliance gate
+        can check it without the agent reaching around the adapter seam.
+        """
+        ...
