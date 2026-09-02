@@ -1,0 +1,149 @@
+# ============================================================================
+# Recoup — root-cause classifier rules
+# ============================================================================
+# The AGENT owns this file. It is not ground truth and it is not derived from
+# config/world.yaml — deriving it from the world would make classification a
+# dictionary lookup and every recovery number circular.
+#
+# These rules are written from what Razorpay publishes:
+#   https://razorpay.com/docs/errors/
+#   https://razorpay.com/docs/errors/payments/payment-methods-error-parameters/
+#
+# That documentation has a specific shape, and it dictates the design here.
+# `source` and `step` are enumerated exhaustively per payment method. `reason`
+# is NOT — only examples appear. So a rules file written from the docs can be
+# complete about *where* a payment broke and is necessarily incomplete about
+# *why*, and the gaps land exactly on vendor-specific reason strings nobody
+# published.
+#
+# Those gaps are intentional and are left unfilled. They are the population the
+# LLM fallback exists to classify, and the honest measure of whether it is worth
+# having: if the deterministic rules resolved everything, the model would be
+# decoration.
+#
+# Matching is by specificity — a rule naming more fields wins over one naming
+# fewer, so a precise reason beats a broad source. Ties break by declaration
+# order.
+# ============================================================================
+
+version: 1
+
+# Below this, a classification is not trusted enough to act on and the failure is
+# routed to the fallback instead.
+min_confidence: 0.5
+
+rules:
+
+  # -- Reason-level: the most specific signal, where it is documented ---------
+
+  - id: insufficient_funds
+    match: { reason: insufficient_funds }
+    cause: INSUFFICIENT_FUNDS
+    confidence: 0.95
+    note: Balance, not authorisation. Worth retrying after a salary credit.
+
+  - id: insufficient_balance
+    match: { reason: insufficient_balance }
+    cause: INSUFFICIENT_FUNDS
+    confidence: 0.95
+    note: Wallet phrasing of the same condition.
+
+  - id: invalid_otp
+    match: { reason: invalid_otp }
+    cause: AUTH_ABANDONED
+    confidence: 0.9
+    note: >
+      Documented in Razorpay's own error example. Treated as abandonment rather
+      than a hard decline: the instrument is fine, the customer did not finish.
+
+  - id: payment_timeout
+    match: { reason: payment_timeout }
+    cause: AUTH_ABANDONED
+    confidence: 0.9
+
+  - id: payment_cancelled
+    match: { reason: payment_cancelled }
+    cause: CUSTOMER_INTENT
+    confidence: 0.95
+    note: A deliberate no. Distinct from abandonment, and chased far less hard.
+
+  - id: card_expired
+    match: { reason: card_expired }
+    cause: INSTRUMENT_INVALID
+    confidence: 0.98
+
+  - id: invalid_vpa
+    match: { reason: invalid_vpa }
+    cause: INSTRUMENT_INVALID
+    confidence: 0.95
+
+  - id: gateway_technical_error
+    match: { reason: gateway_technical_error }
+    cause: TECHNICAL_GATEWAY
+    confidence: 0.9
+
+  - id: payment_blocked_risk
+    match: { reason: payment_blocked_risk }
+    cause: RISK_BLOCKED
+    confidence: 0.99
+    note: Never retried. See compliance.yaml hard_stops.
+
+  - id: mandate_revoked
+    match: { reason: mandate_revoked }
+    cause: MANDATE_PROBLEM
+    confidence: 0.99
+
+  - id: mandate_limit_exceeded
+    match: { reason: mandate_limit_exceeded }
+    cause: MANDATE_PROBLEM
+    confidence: 0.95
+
+  - id: payment_declined
+    match: { reason: payment_declined }
+    cause: SOFT_ISSUER_DECLINE
+    confidence: 0.8
+    note: >
+      Generic issuer refusal. Soft rather than hard: a decline at 2am and the
+      same decline at 10am are not the same event.
+
+  - id: payment_failed_gateway
+    match: { source: gateway, step: payment_authorization, reason: payment_failed }
+    cause: SOFT_ISSUER_DECLINE
+    confidence: 0.75
+    note: >
+      Observed on a live test-mode card decline — see
+      tests/fixtures/live_payment_failed.json. The reason string carries almost
+      no information, so the source and step are what make it classifiable.
+
+  # -- Source-level: weaker, but derivable from documented semantics ----------
+  # These catch infrastructure failures whose reason strings are vendor-specific
+  # and undocumented. Lower confidence because the inference is structural.
+
+  - id: network_source
+    match: { source: network }
+    cause: TECHNICAL_GATEWAY
+    confidence: 0.65
+    note: A network-sourced failure is infrastructure, whatever it is called.
+
+  - id: psp_source
+    match: { source: customer_psp }
+    cause: TECHNICAL_GATEWAY
+    confidence: 0.65
+    note: The customer's UPI app, not the customer and not the bank.
+
+# ---------------------------------------------------------------------------
+# Known gaps
+# ---------------------------------------------------------------------------
+# Reason strings seen in the wild that no documented rule covers. Listed so the
+# gaps are stated rather than discovered, and so the fallback's caseload is
+# predictable rather than surprising:
+#
+#   bank_unavailable      netbanking, source issuer_bank — reads like an outage,
+#                         but issuer_bank is also the source for genuine declines,
+#                         so source alone cannot separate them.
+#   wallet_unavailable    wallet provider down.
+#   wallet_not_linked     a setup problem, not a payment problem.
+#
+# Deliberately not hand-mapped. Hand-mapping them would be fitting the rules to
+# this particular simulator rather than to the documentation, and would hide the
+# thing worth measuring.
