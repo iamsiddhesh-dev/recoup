@@ -39,6 +39,10 @@ class NudgeConfig(BaseModel):
     prior_response: float
     prior_completion: float
     decay_per_prior_contact: float
+    channel_response: dict[str, float]
+
+    def multiplier_for(self, channel: str) -> float:
+        return self.channel_response.get(channel, 1.0)
 
 
 class DowntimePolicy(BaseModel):
@@ -57,6 +61,7 @@ class PolicyConfig(BaseModel):
     learning: LearningConfig
     nudge: NudgeConfig
     escalation_success_rate: float
+    escalation_scarcity_premium: int
     retry_offsets_hours: list[int]
     delay_decay_per_day: float
     payday_lookahead_days: int

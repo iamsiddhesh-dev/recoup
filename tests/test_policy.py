@@ -266,18 +266,23 @@ def test_an_unclassified_failure_prices_its_retry_pessimistically(engine, builde
     assert unknown_p < known_p
 
 
-def test_an_unclassified_failure_tends_toward_human_review(engine, builder):
+def test_a_large_unclassified_failure_tends_toward_human_review(engine, builder):
     """Emergent, not hard-coded, and the right instinct.
 
     Nothing says "escalate when confused". An unresolved cause is priced at the
     most pessimistic prior on the board, which drops the value of every automated
     option while human review — whose success rate does not depend on knowing the
     cause — is unaffected. So the arithmetic routes unexplained failures to a
-    person, which is what an ops team would want.
-    """
-    decision = engine.decide(_context(builder, cause=None, amount=250000))
+    person.
 
-    assert decision.action is ActionKind.ESCALATE_HUMAN
+    Only large ones, though. A scarce human slot spent on a ₹2,500 mystery is a
+    slot not spent on a ₹90,000 one, and the scarcity premium prices that in.
+    """
+    large = engine.decide(_context(builder, cause=None, amount=9000000))
+    small = engine.decide(_context(builder, cause=None, amount=250000))
+
+    assert large.action is ActionKind.ESCALATE_HUMAN
+    assert small.action is not ActionKind.ESCALATE_HUMAN
 
 
 # ---------------------------------------------------------------------------

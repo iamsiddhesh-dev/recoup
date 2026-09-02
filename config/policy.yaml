@@ -97,6 +97,18 @@ nudge:
   prior_completion: 0.68      # having acted, they finish
   decay_per_prior_contact: 0.45
 
+  # The agent's belief about channel effectiveness, relative to SMS. Deliberately
+  # close to but not identical with the world's true values — it is allowed to be
+  # somewhat wrong, and correcting it is exactly what the learned model is for.
+  #
+  # Without this the agent picks purely on cost and emails everyone forever, which
+  # is correct arithmetic over a wrong model. Channels are not interchangeable.
+  channel_response:
+    whatsapp: 1.30
+    sms: 1.00
+    voice: 1.50
+    email: 0.50
+
 # What fraction of escalated cases a human actually resolves.
 #
 # An earlier 0.55 at ₹40 made human review positive-EV on a ₹400 payment, which
@@ -109,6 +121,19 @@ nudge:
 # is finite. Value and capacity are different constraints and are expressed in
 # different places.
 escalation_success_rate: 0.35
+
+# The shadow price of one human's attention.
+#
+# Compliance allows 50 escalations per run against roughly 1,600 failures. Spending
+# one on a ₹2,500 payment forecloses spending it on a ₹90,000 one, and that
+# opportunity cost is real even though no invoice records it. Without it the policy
+# proposed escalation for nearly every payment and compliance refused it ~1,450
+# times — arithmetically defensible, operationally nonsense, and it buried the
+# refusal list under noise.
+#
+# Priced so that escalation only competes where the amount genuinely warrants a
+# person. Scarcity belongs in the cost, not only in the cap.
+escalation_scarcity_premium: 90000
 
 # ---------------------------------------------------------------------------
 # Scheduling
