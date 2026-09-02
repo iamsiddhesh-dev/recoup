@@ -75,6 +75,32 @@ amounts:
 merchant_margin: 0.28
 
 # ---------------------------------------------------------------------------
+# Standing authorisation
+# ---------------------------------------------------------------------------
+# Share of payments made against a saved instrument — a tokenised card-on-file or
+# a UPI Autopay mandate — rather than a fresh one-time authorisation.
+#
+# This is the most consequential structural fact in the whole model. Razorpay
+# cannot re-run a failed payment: a charge with the customer absent is only
+# possible where standing authorisation exists. Everything else has to go back to
+# the customer via a link, which is slower, costs a contact, and can be refused.
+#
+# So this number decides how much of the failed pool is reachable by retry at all,
+# and therefore what kind of product Recoup is. Set it to zero and recovery is
+# purely a messaging problem; set it to one and it is purely a scheduling problem.
+# Reality is in between, and it is swept.
+#
+# [ASSUMPTION] Card tokenisation is widespread post-RBI mandate; UPI Autopay is
+# growing but still a minority of UPI volume; emandate is standing authorisation
+# by definition.
+saved_instrument_rate:
+  upi: 0.18
+  card: 0.34
+  netbanking: 0.00
+  wallet: 0.00
+  emandate: 1.00
+
+# ---------------------------------------------------------------------------
 # First-attempt failure rates
 # ---------------------------------------------------------------------------
 # [ASSUMPTION] Per-method first-attempt failure probability. This sets the size
