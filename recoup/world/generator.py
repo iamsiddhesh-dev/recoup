@@ -141,6 +141,7 @@ class Generator:
         self._selection = substream(seed, "selection")
         self._amounts = substream(seed, "amounts")
         self._outcomes = substream(seed, "outcomes")
+        self._instruments = substream(seed, "instruments")
 
     # -- arrival times ------------------------------------------------------
 
@@ -210,12 +211,22 @@ class Generator:
     def _instrument(
         self, payment_id: str, method: PaymentMethod, issuer_code: str, customer: Customer
     ) -> dict[str, str | None]:
+        """Build the instrument, and decide whether it carries standing authorisation.
+
+        A `token_id` is not decoration — it is the difference between a failure the
+        agent can retry on its own and one that has to go back to the customer.
+        Drawn from its own stream so that changing the tokenisation rate does not
+        reshuffle amounts or arrival times.
+        """
+        saved = self._instruments.random() < self._config.saved_instrument_rate[method]
+        token = {"token_id": f"token_{payment_id[4:]}"} if saved else {}
+
         match method:
             case PaymentMethod.CARD:
-                return {"card_id": f"card_{payment_id[4:]}", "bank": issuer_code}
+                return {"card_id": f"card_{payment_id[4:]}", "bank": issuer_code, **token}
             case PaymentMethod.UPI:
                 handle = _UPI_HANDLES.get(issuer_code, "okbank")
-                return {"vpa": f"{customer.id}@{handle}", "bank": issuer_code}
+                return {"vpa": f"{customer.id}@{handle}", "bank": issuer_code, **token}
             case PaymentMethod.NETBANKING:
                 return {"bank": issuer_code}
             case PaymentMethod.WALLET:

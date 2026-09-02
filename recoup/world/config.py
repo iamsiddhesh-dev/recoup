@@ -142,6 +142,7 @@ class WorldConfig(BaseModel):
     method_mix: dict[PaymentMethod, float]
     amounts: dict[PaymentMethod, AmountSpec]
     merchant_margin: float
+    saved_instrument_rate: dict[PaymentMethod, float]
     failure_rate: dict[PaymentMethod, float]
     error_taxonomy: dict[PaymentMethod, list[TaxonomyEntry]]
     recovery: RecoveryConfig
@@ -158,6 +159,7 @@ class WorldConfig(BaseModel):
         for label, mapping in (
             ("amounts", self.amounts),
             ("failure_rate", self.failure_rate),
+            ("saved_instrument_rate", self.saved_instrument_rate),
             ("error_taxonomy", self.error_taxonomy),
         ):
             if set(mapping) != methods:
