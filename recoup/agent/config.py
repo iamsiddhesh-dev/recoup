@@ -29,8 +29,21 @@ class LearningConfig(BaseModel):
     blend: str = "shrinkage"
 
 
+class NudgeConfig(BaseModel):
+    """A contact recovers money only if two independent things happen.
+
+    Kept separate because they fail for different reasons, and only response
+    decays with how often we have already written to this customer.
+    """
+
+    prior_response: float
+    prior_completion: float
+    decay_per_prior_contact: float
+
+
 class DowntimePolicy(BaseModel):
-    defer_on_severity: list[Severity]
+    """Timing only. Whether an outage blocks a retry is a compliance rule."""
+
     recheck_minutes: int
     max_defer_hours: int
 
@@ -42,7 +55,10 @@ class PolicyConfig(BaseModel):
     annoyance: AnnoyanceConfig
     prior_recovery_probability: dict[FailureCause, float]
     learning: LearningConfig
+    nudge: NudgeConfig
+    escalation_success_rate: float
     retry_offsets_hours: list[int]
+    delay_decay_per_day: float
     payday_lookahead_days: int
     downtime: DowntimePolicy
     ev_threshold_paise: int
@@ -125,13 +141,40 @@ class ExecutionRules(BaseModel):
     require_idempotency_key: bool
 
 
+class DowntimeRules(BaseModel):
+    refuse_retry_on_severity: list[Severity]
+
+
 class ComplianceConfig(BaseModel):
     attempts: AttemptLimits
     contact: ContactLimits
     hard_stops: dict[str, HardStop] = Field(default_factory=dict)
+    downtime: DowntimeRules
     mandate: MandateRules
     escalation: EscalationRules
     execution: ExecutionRules
+
+    @model_validator(mode="after")
+    def _hard_stops_name_real_causes(self) -> Self:
+        """A hard stop keyed on something that is not a cause never fires.
+
+        This is not hypothetical: the rule against re-debiting a revoked mandate
+        was written as `MANDATE_REVOKED`, which is a reason string rather than a
+        FailureCause, and silently matched nothing. The most legally consequential
+        rule in the file was inert, and nothing failed. See FAILURES.md.
+
+        Failing at load time makes that class of mistake impossible rather than
+        merely unlikely.
+        """
+        known = {str(cause) for cause in FailureCause}
+        unknown = set(self.hard_stops) - known
+
+        if unknown:
+            raise ValueError(
+                f"hard_stops keys must be FailureCause values; {sorted(unknown)} "
+                f"match nothing and would never fire. Valid: {sorted(known)}"
+            )
+        return self
 
     def hard_stop_for(self, cause: FailureCause | None) -> HardStop | None:
         return self.hard_stops.get(str(cause)) if cause else None

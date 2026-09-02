@@ -19,7 +19,7 @@
 # ============================================================================
 
 # Assumed contribution margin on recovered revenue. The agent optimises margin,
-# not gross — chasing a ₹200 recovery with a ₹40 human escalation is negative EV
+# not gross — chasing a ₹200 recovery with a ₹120 human escalation is negative EV
 # even though it "recovers money".
 assumed_margin: 0.28
 
@@ -32,14 +32,21 @@ assumed_margin: 0.28
 action_costs:
   RETRY_NOW:        200
   RETRY_SCHEDULED:  200
-  SWITCH_METHOD:    200
-  SWITCH_ROUTE:     300
   NUDGE_SMS:         15
   NUDGE_WHATSAPP:    35
   NUDGE_EMAIL:        3
   NUDGE_VOICE:      120
-  ESCALATE_HUMAN:  4000
+  ESCALATE_HUMAN: 12000
   STOP:               0
+
+# Deliberately absent: SWITCH_ROUTE.
+#
+# Re-routing a payment to a different acquirer is a real recovery lever and one
+# Razorpay itself sells. It is not exposed on the standard payments API, so
+# Recoup could propose it but could never execute it — and an action that only
+# works in the simulator is exactly the divergence the adapter seam exists to
+# prevent. Modelling it would inflate results by pricing in a lever we do not
+# have. See DECISIONS.md.
 
 # Multiplier applied to retry cost per prior attempt on the same instrument.
 retry_cost_escalation: 1.8
@@ -80,24 +87,56 @@ learning:
   blend: shrinkage        # shrink toward the prior, weighted by sample size
 
 # ---------------------------------------------------------------------------
+# Customer contact
+# ---------------------------------------------------------------------------
+# A nudge recovers money only if two things happen: the customer acts, and then
+# completes the payment. Separating them matters because they fail for different
+# reasons and only the first is affected by how often we have already written.
+nudge:
+  prior_response: 0.22        # they do something
+  prior_completion: 0.68      # having acted, they finish
+  decay_per_prior_contact: 0.45
+
+# What fraction of escalated cases a human actually resolves.
+#
+# An earlier 0.55 at ₹40 made human review positive-EV on a ₹400 payment, which
+# is not credible: an ops person cannot resolve more than half of arbitrary
+# payment failures, and ₹40 does not buy the fifteen minutes it takes to try.
+#
+# Note this stays positive-EV above roughly ₹1,200, which is still low. That is
+# correct and deliberate: the arithmetic says escalation is often *worth* it,
+# while compliance.yaml caps it at ₹50,000 and 50 per run because human capacity
+# is finite. Value and capacity are different constraints and are expressed in
+# different places.
+escalation_success_rate: 0.35
+
+# ---------------------------------------------------------------------------
 # Scheduling
 # ---------------------------------------------------------------------------
 # Candidate retry offsets, in hours. The policy scores each against the learned
 # hour-of-day model and picks the best that survives compliance.
 retry_offsets_hours: [0, 1, 4, 12, 24, 48, 72, 120]
 
-# INSUFFICIENT_FUNDS gets payday-aware scheduling: if a salary-credit window is
-# within this horizon, prefer waiting for it over retrying immediately.
+# Value decays with delay. Without this the optimiser always waits for the single
+# best hour of the month, because a distant retry has a better success rate and
+# costs the same — ignoring that the customer buys elsewhere, the cart goes cold,
+# and the merchant's cash sits still. The decay is what creates a real tradeoff
+# between "soon" and "when it is most likely to work".
+delay_decay_per_day: 0.12
+
+# INSUFFICIENT_FUNDS is payday-sensitive, but the agent is not told that. It is
+# given a month-phase feature (early / mid / late) and has to discover from
+# outcomes that early-month retries recover better. This is the horizon it may
+# schedule ahead to reach one.
 payday_lookahead_days: 6
 
 # ---------------------------------------------------------------------------
-# Downtime gating
+# Downtime scheduling
 # ---------------------------------------------------------------------------
-# Retrying into a known issuer outage burns an attempt against the cap for
-# nothing. When Razorpay's Payment Downtime API reports a live downtime for the
-# instrument's issuer or method, retries are deferred until it resolves.
+# How long to wait before reconsidering a payment deferred by an outage. Whether
+# an outage should block a retry at all is a behavioural rule and lives in
+# compliance.yaml — this is only the timing.
 downtime:
-  defer_on_severity: [medium, high]
   recheck_minutes: 15
   max_defer_hours: 12
 

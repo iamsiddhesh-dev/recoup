@@ -67,12 +67,17 @@ hard_stops:
       around a control, and contacting the customer about it leaks the existence
       of the block. Escalate to a human or stop.
 
-  MANDATE_REVOKED:
+  # Keys must be FailureCause values and are validated as such at load time.
+  # This one was written as MANDATE_REVOKED — a reason string, not a cause — and
+  # silently matched nothing, leaving the rule inert. See FAILURES.md.
+  MANDATE_PROBLEM:
     retry: false
     contact: true
     why: >
-      The customer withdrew authorisation. Debiting again is unauthorised
-      regardless of outcome. A single notification is permitted; a retry is not.
+      The mandate is revoked, paused, or the debit exceeds its permitted amount.
+      Debiting again is unauthorised regardless of outcome, and re-presenting the
+      same amount against a capped mandate cannot succeed anyway. A single
+      notification is permitted; a retry is not.
 
   CUSTOMER_INTENT:
     retry: false
@@ -89,6 +94,20 @@ hard_stops:
       The instrument cannot succeed as-is — expired card, invalid VPA, unlinked
       wallet. Retrying is guaranteed to fail and consumes the attempt cap. The
       only path is the customer supplying a new instrument.
+
+# ---------------------------------------------------------------------------
+# Outages
+# ---------------------------------------------------------------------------
+# Refuse to retry into a known issuer or method outage, using Razorpay's Payment
+# Downtime feed as the signal.
+#
+# This sits with the hard rules rather than in the expected-value calculation
+# deliberately. A retry during a severe outage is near certain to fail AND
+# consumes an attempt from a cap that cannot be refilled — the real cost is the
+# lost future attempt, which no per-attempt price captures. Left to arithmetic, a
+# large enough payment would always justify burning one.
+downtime:
+  refuse_retry_on_severity: [medium, high]
 
 # ---------------------------------------------------------------------------
 # Mandates
