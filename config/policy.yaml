@@ -109,6 +109,27 @@ nudge:
     voice: 1.50
     email: 0.50
 
+  # The agent's belief about how much a contact helps, given the cause. Again
+  # close to but not identical with the world's truth.
+  cause_response:
+    AUTH_ABANDONED: 1.40
+    INSTRUMENT_INVALID: 1.20
+    INSUFFICIENT_FUNDS: 0.80
+    SOFT_ISSUER_DECLINE: 0.80
+    MANDATE_PROBLEM: 0.65
+    TECHNICAL_GATEWAY: 0.35
+    CUSTOMER_INTENT: 0.30
+    RISK_BLOCKED: 0.00
+
+  # What to assume when the cause could not be determined.
+  #
+  # Set at the pessimistic end deliberately. An unclassified failure might be an
+  # abandoned OTP worth chasing or a bank outage worth ignoring, and spending a
+  # contact to find out is how an agent wastes goodwill. This number is also
+  # precisely what the LLM fallback buys back: every failure it classifies moves
+  # off this floor and onto a real estimate.
+  unknown_cause_response: 0.45
+
 # What fraction of escalated cases a human actually resolves.
 #
 # An earlier 0.55 at ₹40 made human review positive-EV on a ₹400 payment, which

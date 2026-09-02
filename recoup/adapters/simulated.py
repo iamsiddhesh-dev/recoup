@@ -181,9 +181,14 @@ class SimulatedNotifier:
         config: WorldConfig,
         population: Population,
         issuers: IssuerBook,
+        batch: Batch | None = None,
     ) -> None:
         self._population = population
         self._outcomes = Outcomes(config, issuers, population)
+        # The world knows why each payment failed. The agent does not, and the
+        # request carries no cause — it is looked up here so the true cause can
+        # shape the outcome without ever crossing the wire.
+        self._batch = batch
         self._contacts: dict[str, int] = {}
         self._seen_keys: dict[str, NudgeResult] = {}
 
@@ -224,13 +229,17 @@ class SimulatedNotifier:
         # instrument. `link_completed` is the harder bar, and using it here is
         # what stops the run counting an opened notification as recovered money.
         channel = str(request.channel)
+        cause = None
+        if self._batch is not None and request.payment_id in self._batch.truths:
+            cause = self._batch.truth_for(request.payment_id).cause
+
         if request.link is not None:
             acted = self._outcomes.link_completed(
-                customer, request.payment_id, contact_number, channel
+                customer, request.payment_id, contact_number, channel, cause
             )
         else:
             acted = self._outcomes.nudge_lands(
-                customer, request.payment_id, contact_number, channel
+                customer, request.payment_id, contact_number, channel, cause
             )
 
         result = NudgeResult(

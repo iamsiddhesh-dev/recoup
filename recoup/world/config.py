@@ -112,6 +112,7 @@ class CustomersConfig(BaseModel):
     consent_rate: dict[str, float]
     language: dict[Language, float]
     channel_response: dict[str, float]
+    cause_response: dict[FailureCause, float]
 
     @model_validator(mode="after")
     def _validate(self) -> Self:
