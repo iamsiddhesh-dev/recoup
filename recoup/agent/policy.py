@@ -36,7 +36,7 @@ from datetime import datetime, timedelta
 from recoup.agent.actions import ActionKind, Candidate, Decision
 from recoup.agent.config import PolicyConfig
 from recoup.agent.context import DecisionContext
-from recoup.domain import FailureCause
+from recoup.domain import Channel, FailureCause
 
 NUDGE_ACTIONS = (
     ActionKind.NUDGE_SMS,
@@ -135,9 +135,15 @@ class PolicyEngine:
         """
         nudge = self._policy.nudge
         prior = context.contacts_in_window
+        channel = str(action.channel)
 
-        response = nudge.prior_response * (nudge.decay_per_prior_contact**prior)
-        probability = response * nudge.prior_completion
+        # Channels are not interchangeable. A WhatsApp message and a transactional
+        # email ask the same thing and get very different answers, and pricing them
+        # as equivalent makes the optimiser email everyone forever because email is
+        # cheapest.
+        reach = nudge.multiplier_for(channel)
+        response = nudge.prior_response * reach * (nudge.decay_per_prior_contact**prior)
+        probability = min(1.0, response) * nudge.prior_completion
 
         gross = probability * context.amount * self._policy.assumed_margin
         cost = self._policy.cost_of(str(action))
@@ -150,34 +156,47 @@ class PolicyEngine:
             ev=ev,
             probability=probability,
             breakdown={
+                "channel_reach": reach,
                 "response": round(response, 4),
                 "completion": nudge.prior_completion,
                 "probability": round(probability, 4),
                 "amount": context.amount,
+                "margin": self._policy.assumed_margin,
                 "gross": round(gross),
                 "cost": cost,
                 "annoyance": annoyance,
                 "prior_contacts": prior,
             },
-            note=f"contact #{prior + 1}",
+            note=f"contact #{prior + 1} via {channel}",
         )
 
     def _escalation_candidate(self, context: DecisionContext) -> Candidate:
+        """Price a human's attention, including what it costs to spend it here.
+
+        The direct cost is the ops time. The larger cost is the slot: compliance
+        allows fifty escalations against roughly sixteen hundred failures, so using
+        one on a small payment forecloses using it on a large one. That opportunity
+        cost is real even though nothing invoices for it, and leaving it out made
+        the policy propose escalation for nearly every payment and be refused ~1,450
+        times — defensible arithmetic, operationally nonsense.
+        """
         probability = self._policy.escalation_success_rate
         gross = probability * context.amount * self._policy.assumed_margin
-        cost = self._policy.cost_of(str(ActionKind.ESCALATE_HUMAN))
+        direct = self._policy.cost_of(str(ActionKind.ESCALATE_HUMAN))
+        scarcity = self._policy.escalation_scarcity_premium
 
         return Candidate(
             action=ActionKind.ESCALATE_HUMAN,
             at=context.now,
-            ev=int(gross - cost),
+            ev=int(gross - direct - scarcity),
             probability=probability,
             breakdown={
                 "probability": probability,
                 "amount": context.amount,
                 "margin": self._policy.assumed_margin,
                 "gross": round(gross),
-                "cost": cost,
+                "cost": direct,
+                "scarcity_premium": scarcity,
             },
             note="human review",
         )
@@ -221,6 +240,27 @@ class PolicyEngine:
 
         return times
 
+    # -- availability --------------------------------------------------------
+
+    @staticmethod
+    def _reachable(context: DecisionContext, action: ActionKind) -> bool:
+        """Whether this channel can be used for this customer at all.
+
+        Consent is a fact about the customer, not a compliance rule, so the policy
+        is entitled to know it — and pricing an option that can never be taken is
+        wasted arithmetic. The compliance gate still checks consent independently;
+        this is not a substitute for that, it stops the ranking filling with
+        options that exist only to be refused.
+
+        Channels needing no consent are always reachable.
+        """
+        channel = action.channel
+        if channel is None:
+            return True
+        if f"consent:{channel}" in context.notes:
+            return context.notes[f"consent:{channel}"] == "true"
+        return channel not in (Channel.WHATSAPP, Channel.VOICE)
+
     # -- the decision --------------------------------------------------------
 
     def decide(self, context: DecisionContext) -> Decision:
@@ -233,7 +273,9 @@ class PolicyEngine:
 
         if context.customer_ref:
             candidates.extend(
-                self._nudge_candidate(context, action) for action in NUDGE_ACTIONS
+                self._nudge_candidate(context, action)
+                for action in NUDGE_ACTIONS
+                if self._reachable(context, action)
             )
 
         candidates.append(self._escalation_candidate(context))
