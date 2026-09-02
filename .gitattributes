@@ -1,0 +1,15 @@
+# Normalise line endings to LF in the repository and on checkout.
+# `make reproduce` must produce byte-identical output, and CI runs on Linux
+# while development happens on Windows — without this, line-ending drift
+# silently breaks byte comparisons.
+* text=auto eol=lf
+
+# Binary assets — never touch these.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.db binary
+*.sqlite3 binary
+*.duckdb binary
