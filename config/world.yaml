@@ -23,6 +23,22 @@ run:
   currency: INR
   timezone: Asia/Kolkata
 
+  # Runs start on a fixed date rather than "today", so a run recorded months ago
+  # is comparable to one from this afternoon. Nothing derives from wall-clock.
+  start_date: 2026-06-01
+
+# [ASSUMPTION] Relative order volume by hour of day (IST). Indian e-commerce is
+# strongly evening-weighted. This decides which hours original failures land in,
+# which in turn decides how much room the agent has to reschedule them.
+traffic_by_hour:
+  [0.28, 0.16, 0.10, 0.08, 0.09, 0.14, 0.30, 0.52, 0.78, 0.96, 1.05, 1.10,
+   1.08, 0.98, 0.94, 1.00, 1.12, 1.30, 1.52, 1.68, 1.62, 1.34, 0.88, 0.48]
+
+# [ASSUMPTION] During an active outage, failures skew hard toward technical
+# causes. This is the correlation the agent has to discover: a spike in
+# TECHNICAL_GATEWAY means stop retrying, not retry harder.
+downtime_technical_tilt: 4.0
+
 # ---------------------------------------------------------------------------
 # Payment method mix
 # ---------------------------------------------------------------------------
@@ -42,12 +58,17 @@ method_mix:
 # ---------------------------------------------------------------------------
 # [ASSUMPTION] UPI skews to small tickets, emandate to recurring subscription
 # amounts, cards sit in between with a fatter tail.
+#
+# mu is ln(median amount in PAISE), not rupees — e.g. a ₹400 median UPI ticket
+# is 40,000 paise, so mu = ln(40000) = 10.60. Getting this wrong by the factor
+# of 100 between rupees and paise silently makes every recovery look worthless,
+# so tests/test_world.py asserts the realised medians land in a sane band.
 amounts:
-  upi:        { dist: lognormal, mu: 6.4, sigma: 0.9, min: 1000,  max: 20000000 }
-  card:       { dist: lognormal, mu: 7.6, sigma: 1.0, min: 5000,  max: 50000000 }
-  netbanking: { dist: lognormal, mu: 8.1, sigma: 1.1, min: 10000, max: 80000000 }
-  wallet:     { dist: lognormal, mu: 5.9, sigma: 0.8, min: 1000,  max: 5000000 }
-  emandate:   { dist: lognormal, mu: 7.2, sigma: 0.5, min: 9900,  max: 10000000 }
+  upi:        { dist: lognormal, mu: 10.60, sigma: 0.90, min: 1000,  max: 20000000 }  # ~₹400
+  card:       { dist: lognormal, mu: 12.10, sigma: 1.00, min: 5000,  max: 50000000 }  # ~₹1,800
+  netbanking: { dist: lognormal, mu: 12.77, sigma: 1.10, min: 10000, max: 80000000 }  # ~₹3,500
+  wallet:     { dist: lognormal, mu: 10.13, sigma: 0.80, min: 1000,  max: 5000000 }   # ~₹250
+  emandate:   { dist: lognormal, mu: 11.00, sigma: 0.50, min: 9900,  max: 10000000 }  # ~₹600
 
 # [ASSUMPTION] Contribution margin on recovered revenue. The EV engine optimises
 # margin, not gross, so this materially changes which actions are worth taking.
