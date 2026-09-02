@@ -102,8 +102,12 @@ def test_quiet_hours_wrap_midnight():
 # ---------------------------------------------------------------------------
 
 
+def _at(day: int, hour: int) -> datetime:
+    return datetime(2026, 6, day, hour, 0)
+
+
 def test_with_no_evidence_the_estimate_is_the_prior(model, policy):
-    estimate = model.estimate(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", 10)
+    estimate = model.estimate(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", _at(10, 10))
 
     assert estimate.probability == pytest.approx(
         policy.prior_recovery_probability[FailureCause.SOFT_ISSUER_DECLINE]
@@ -118,25 +122,27 @@ def test_one_lucky_success_barely_moves_the_estimate(model, policy):
     estimator would say it is and the policy would spend money on it.
     """
     prior = policy.prior_recovery_probability[FailureCause.SOFT_ISSUER_DECLINE]
+    when = _at(10, 10)
 
-    model.record(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", 10, succeeded=True)
-    model.record(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", 10, succeeded=False)
+    model.record(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", when, succeeded=True)
+    model.record(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", when, succeeded=False)
 
-    estimate = model.estimate(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", 10)
+    estimate = model.estimate(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", when)
 
     assert abs(estimate.probability - prior) < 0.06
 
 
 def test_sustained_evidence_overrides_the_prior(model, policy):
     prior = policy.prior_recovery_probability[FailureCause.SOFT_ISSUER_DECLINE]
+    when = _at(10, 10)
 
     for _ in range(400):
-        model.record(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", 10, succeeded=True)
+        model.record(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", when, succeeded=True)
 
-    estimate = model.estimate(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", 10)
+    estimate = model.estimate(FailureCause.SOFT_ISSUER_DECLINE, "HDFC", when)
 
     assert estimate.probability > prior + 0.3
-    assert estimate.level == "cause+issuer+hour"
+    assert estimate.level == "cause+issuer+phase+hour"
     assert estimate.observations == 400
 
 
@@ -150,40 +156,63 @@ def test_evidence_at_a_coarser_level_informs_an_unseen_cell(model, policy):
 
     for hour in range(0, 12):
         for _ in range(40):
-            model.record(FailureCause.AUTH_ABANDONED, "ICIC", hour, succeeded=True)
+            model.record(
+                FailureCause.AUTH_ABANDONED, "ICIC", _at(10, hour), succeeded=True
+            )
 
-    unseen_hour = model.estimate(FailureCause.AUTH_ABANDONED, "ICIC", 23)
+    unseen_hour = model.estimate(FailureCause.AUTH_ABANDONED, "ICIC", _at(10, 23))
 
     assert unseen_hour.probability > prior
-    assert unseen_hour.level == "cause"
+    assert unseen_hour.level == "cause+phase"
+
+
+def test_the_agent_can_discover_the_payday_effect(model):
+    """The pattern the agent is expected to find, not be told.
+
+    The world boosts INSUFFICIENT_FUNDS recovery in the first five days of the
+    month because salary credits land then. Nothing tells the agent that. It is
+    given a coarse month-phase feature and has to learn the difference from
+    outcomes — which it can only do if phase is actually in the model.
+    """
+    for _ in range(200):
+        model.record(FailureCause.INSUFFICIENT_FUNDS, "SBIN", _at(3, 10), succeeded=True)
+        model.record(FailureCause.INSUFFICIENT_FUNDS, "SBIN", _at(15, 10), succeeded=False)
+
+    early = model.estimate(FailureCause.INSUFFICIENT_FUNDS, "SBIN", _at(2, 10))
+    mid = model.estimate(FailureCause.INSUFFICIENT_FUNDS, "SBIN", _at(16, 10))
+
+    assert early.probability > mid.probability + 0.3
 
 
 def test_an_unclassified_failure_gets_the_most_pessimistic_prior(model, policy):
     """Acting confidently on a cause you could not identify spends money on nothing."""
-    estimate = model.estimate(None, "HDFC", 10)
+    estimate = model.estimate(None, "HDFC", _at(10, 10))
 
     assert estimate.probability == min(policy.prior_recovery_probability.values())
     assert estimate.level == "unclassified"
 
 
-def test_best_hour_picks_the_highest_estimate(model):
+def test_best_time_picks_the_highest_estimate(model):
     for _ in range(300):
-        model.record(FailureCause.INSUFFICIENT_FUNDS, "SBIN", 11, succeeded=True)
-        model.record(FailureCause.INSUFFICIENT_FUNDS, "SBIN", 3, succeeded=False)
+        model.record(FailureCause.INSUFFICIENT_FUNDS, "SBIN", _at(10, 11), succeeded=True)
+        model.record(FailureCause.INSUFFICIENT_FUNDS, "SBIN", _at(10, 3), succeeded=False)
 
-    hour, estimate = model.best_hour(
-        FailureCause.INSUFFICIENT_FUNDS, "SBIN", [3, 11, 20]
+    when, estimate = model.best_time(
+        FailureCause.INSUFFICIENT_FUNDS,
+        "SBIN",
+        [_at(10, 3), _at(10, 11), _at(10, 20)],
     )
 
-    assert hour == 11
+    assert when.hour == 11
     assert estimate.probability > 0.5
 
 
 def test_estimates_stay_within_bounds(model):
+    when = _at(10, 5)
     for _ in range(1000):
-        model.record(FailureCause.TECHNICAL_GATEWAY, "PUNB", 5, succeeded=True)
+        model.record(FailureCause.TECHNICAL_GATEWAY, "PUNB", when, succeeded=True)
 
-    assert 0.0 <= model.estimate(FailureCause.TECHNICAL_GATEWAY, "PUNB", 5).probability <= 1.0
+    assert 0.0 <= model.estimate(FailureCause.TECHNICAL_GATEWAY, "PUNB", when).probability <= 1.0
 
 
 # ---------------------------------------------------------------------------

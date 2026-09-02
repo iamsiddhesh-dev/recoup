@@ -5,20 +5,27 @@ model the agent learns during a run.
 
 ## The learned model
 
-The policy needs P(recover | cause, issuer, hour). Estimating that directly is
-hopeless — eight causes by seven issuers by twenty-four hours is 1,344 cells, and
-a run produces on the order of a thousand attempts. Most cells would be empty and
-the rest would hold two observations, one of which succeeded, giving a confident
-50%.
+The policy needs P(recover | cause, issuer, when). Estimating that directly is
+hopeless — the full cell space runs to thousands, and a run produces on the order
+of a thousand attempts. Most cells would be empty and the rest would hold two
+observations, one of which succeeded, giving a confident 50%.
 
 So estimates are built hierarchically and shrunk toward their parent:
 
-    prior  →  (cause)  →  (cause, hour)  →  (cause, issuer, hour)
+    prior → (cause) → (cause, phase) → (cause, phase, hour) → (cause, issuer, phase, hour)
 
 Each level blends its own observations with the level above, weighted by sample
 size: `(n·observed + k·parent) / (n + k)`. With no data a cell reports its
 parent's estimate; with plenty it reports its own; in between it moves gradually.
 `k` is `learning.min_observations` in policy.yaml.
+
+`phase` is where the month sits — early (1st–5th), mid, or late. It is in the
+model because salary credits cluster at month start in India, so a balance that
+was short last week may not be short now. Crucially the agent is **not told**
+this: it is given a coarse calendar feature that a payments engineer would
+plausibly try, and has to discover from outcomes that early-month retries of
+`INSUFFICIENT_FUNDS` recover better. Handing it the rule would be handing it the
+answer.
 
 This is deliberately statistics rather than a model. Retry timing is exactly the
 kind of problem where an LLM would be reached for and would be worse: the answer
@@ -58,6 +65,21 @@ class Estimate:
         return self.probability
 
 
+def month_phase(when: datetime) -> str:
+    """Where in the month a moment sits.
+
+    Coarse on purpose. Day-of-month as 31 separate values would be far too sparse
+    to learn anything from within one run, and the effect being looked for is
+    broad — salary credits land at the start of the month, not on the 3rd
+    specifically.
+    """
+    if when.day <= 5:
+        return "early"
+    if when.day <= 25:
+        return "mid"
+    return "late"
+
+
 class RecoveryModel:
     """Hierarchical success rates, learned from observed outcomes only."""
 
@@ -67,19 +89,29 @@ class RecoveryModel:
         self._counts: dict[tuple, list[int]] = {}
 
     def record(
-        self, cause: FailureCause, issuer: str | None, hour: int, succeeded: bool
+        self, cause: FailureCause, issuer: str | None, when: datetime, succeeded: bool
     ) -> None:
-        for key in self._keys(cause, issuer, hour):
+        for key, _ in self._levels(cause, issuer, when):
             bucket = self._counts.setdefault(key, [0, 0])
             bucket[0] += 1
             bucket[1] += int(succeeded)
 
     @staticmethod
-    def _keys(cause: FailureCause, issuer: str | None, hour: int) -> list[tuple]:
-        keys: list[tuple] = [(str(cause),), (str(cause), hour)]
+    def _levels(
+        cause: FailureCause, issuer: str | None, when: datetime
+    ) -> list[tuple[tuple, str]]:
+        """Coarse to fine. Each level's estimate shrinks toward the one before."""
+        phase = month_phase(when)
+        levels: list[tuple[tuple, str]] = [
+            ((str(cause),), "cause"),
+            ((str(cause), phase), "cause+phase"),
+            ((str(cause), phase, when.hour), "cause+phase+hour"),
+        ]
         if issuer:
-            keys.append((str(cause), issuer, hour))
-        return keys
+            levels.append(
+                ((str(cause), issuer, phase, when.hour), "cause+issuer+phase+hour")
+            )
+        return levels
 
     def _shrink(self, key: tuple, parent: float) -> tuple[float, int]:
         attempts, successes = self._counts.get(key, [0, 0])
@@ -89,7 +121,7 @@ class RecoveryModel:
         return blended, attempts
 
     def estimate(
-        self, cause: FailureCause | None, issuer: str | None, hour: int
+        self, cause: FailureCause | None, issuer: str | None, when: datetime
     ) -> Estimate:
         if cause is None:
             # An unclassified failure gets the most pessimistic thing that is
@@ -104,29 +136,28 @@ class RecoveryModel:
 
         probability = self._policy.prior_recovery_probability[cause]
         level = "prior"
+        deepest = 0
 
-        for key, name in (
-            ((str(cause),), "cause"),
-            ((str(cause), hour), "cause+hour"),
-            ((str(cause), issuer, hour), "cause+issuer+hour"),
-        ):
-            if name == "cause+issuer+hour" and not issuer:
-                continue
+        for key, name in self._levels(cause, issuer, when):
             probability, observations = self._shrink(key, probability)
             if observations:
                 level = name
+                deepest = observations
 
         return Estimate(
             probability=max(0.0, min(1.0, probability)),
-            observations=self._counts.get((str(cause), issuer, hour), [0])[0],
+            observations=deepest,
             level=level,
         )
 
-    def best_hour(
-        self, cause: FailureCause | None, issuer: str | None, candidates: list[int]
-    ) -> tuple[int, Estimate]:
-        """The hour with the highest estimated success rate among candidates."""
-        scored = [(h, self.estimate(cause, issuer, h)) for h in candidates]
+    def best_time(
+        self,
+        cause: FailureCause | None,
+        issuer: str | None,
+        candidates: list[datetime],
+    ) -> tuple[datetime, Estimate]:
+        """The candidate moment with the highest estimated success rate."""
+        scored = [(when, self.estimate(cause, issuer, when)) for when in candidates]
         return max(scored, key=lambda pair: pair[1].probability)
 
 
@@ -149,6 +180,16 @@ class DecisionContext:
 
     estimate: Estimate | None = None
     notes: dict[str, str] = field(default_factory=dict)
+
+    # Carried so the policy can price a retry at a *future* moment, not only now.
+    # Scheduling is the whole point — an estimate fixed at decision time cannot
+    # tell you that tomorrow morning is better than tonight.
+    model: RecoveryModel | None = None
+
+    def estimate_at(self, when: datetime) -> Estimate:
+        if self.model is None:
+            return self.estimate or Estimate(0.0, 0, "none")
+        return self.model.estimate(self.cause, self.issuer_code, when)
 
     @property
     def cause(self) -> FailureCause | None:
@@ -258,7 +299,8 @@ class ContextBuilder:
             issuer_code=issuer_code,
             downtime=self.active_downtime(str(payment.method), issuer_code),
             can_retry_silently=supports_silent_retry(payment.method, instrument),
-            estimate=self.model.estimate(classification.cause, issuer_code, now.hour),
+            estimate=self.model.estimate(classification.cause, issuer_code, now),
+            model=self.model,
         )
 
 
