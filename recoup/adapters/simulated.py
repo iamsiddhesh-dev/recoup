@@ -22,7 +22,7 @@ from recoup.adapters.base import (
     RecoveryLink,
     supports_silent_retry,
 )
-from recoup.domain import DowntimeEntity, PaymentEntity, PaymentStatus
+from recoup.domain import Channel, DowntimeEntity, PaymentEntity, PaymentStatus
 from recoup.world.config import WorldConfig
 from recoup.world.customers import Population
 from recoup.world.generator import Batch
@@ -190,6 +190,12 @@ class SimulatedNotifier:
     def contacts_for(self, customer_ref: str) -> int:
         return self._contacts.get(customer_ref, 0)
 
+    def consented_channels(self, customer_ref: str) -> set[Channel]:
+        customer = self._population.get(customer_ref)
+        if customer is None:
+            return set()
+        return {channel for channel in Channel if customer.may_contact(channel)}
+
     def send(self, request: NudgeRequest) -> NudgeResult:
         if request.idempotency_key in self._seen_keys:
             return self._seen_keys[request.idempotency_key]
@@ -213,7 +219,20 @@ class SimulatedNotifier:
         contact_number = self._contacts.get(request.customer_ref, 0) + 1
         self._contacts[request.customer_ref] = contact_number
 
-        acted = self._outcomes.nudge_lands(customer, request.payment_id, contact_number)
+        # A message carrying a payment link asks strictly more of the customer
+        # than one that only informs: they have to open it and supply an
+        # instrument. `link_completed` is the harder bar, and using it here is
+        # what stops the run counting an opened notification as recovered money.
+        channel = str(request.channel)
+        if request.link is not None:
+            acted = self._outcomes.link_completed(
+                customer, request.payment_id, contact_number, channel
+            )
+        else:
+            acted = self._outcomes.nudge_lands(
+                customer, request.payment_id, contact_number, channel
+            )
+
         result = NudgeResult(
             delivered=True,
             acted_on=acted,
