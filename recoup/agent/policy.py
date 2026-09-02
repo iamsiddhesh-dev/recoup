@@ -142,7 +142,17 @@ class PolicyEngine:
         # as equivalent makes the optimiser email everyone forever because email is
         # cheapest.
         reach = nudge.multiplier_for(channel)
-        response = nudge.prior_response * reach * (nudge.decay_per_prior_contact**prior)
+
+        # What went wrong changes what a message is worth. Asking someone to
+        # complete a payment while their bank is down spends a contact on nothing;
+        # asking someone who abandoned an OTP usually works. An unclassified
+        # failure sits at a pessimistic floor, which is the cost of not knowing —
+        # and exactly what the classifier fallback buys back.
+        relevance = nudge.cause_multiplier(context.cause)
+
+        response = (
+            nudge.prior_response * reach * relevance * (nudge.decay_per_prior_contact**prior)
+        )
         probability = min(1.0, response) * nudge.prior_completion
 
         gross = probability * context.amount * self._policy.assumed_margin
@@ -157,6 +167,7 @@ class PolicyEngine:
             probability=probability,
             breakdown={
                 "channel_reach": reach,
+                "cause_relevance": relevance,
                 "response": round(response, 4),
                 "completion": nudge.prior_completion,
                 "probability": round(probability, 4),
