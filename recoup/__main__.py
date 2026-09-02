@@ -36,6 +36,35 @@ def _not_yet(name: str) -> Callable[[argparse.Namespace], int]:
     return run
 
 
+def _eval(args: argparse.Namespace) -> int:
+    from recoup.eval import BASELINE, run_all
+    from recoup.eval.metrics import Comparison, rupees, table
+    from recoup.world.config import WorldConfig
+
+    world = WorldConfig.load()
+    if args.seed is not None:
+        world.run.seed = args.seed
+
+    results, ledger = run_all(world)
+    print(table(results, BASELINE))
+
+    baseline = next(m for m in results if m.arm == BASELINE)
+    agent = next((m for m in results if m.arm == "recoup_agent"), None)
+
+    if agent is not None:
+        comparison = Comparison(arm=agent, baseline=baseline)
+        print()
+        print(
+            f"{rupees(agent.recovered_paise)} recovered, of which "
+            f"{rupees(comparison.incremental_paise)} is incremental over naive retry "
+            f"({comparison.lift:+.1%}), at a cost of {agent.contacts:,} contacts, "
+            f"with {agent.vetoes:,} actions refused by compliance."
+        )
+
+    ledger.close()
+    return 0
+
+
 def _serve(args: argparse.Namespace) -> int:
     from recoup.web.app import serve
 
@@ -86,6 +115,7 @@ HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
 }
 HANDLERS["serve"] = _serve
 HANDLERS["probe"] = _probe
+HANDLERS["eval"] = _eval
 
 
 def build_parser() -> argparse.ArgumentParser:
