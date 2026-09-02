@@ -37,9 +37,11 @@ from recoup.world.config import TaxonomyEntry, WorldConfig
 from recoup.world.customers import Customer, Population
 from recoup.world.issuers import IssuerBook
 
-# Razorpay groups errors by who is at fault. Mapping the taxonomy's `source` onto
-# the real top-level codes keeps generated events parseable by code written
-# against the live API. https://razorpay.com/docs/errors/
+# Fallback only. A live capture (tests/fixtures/live_payment_failed.json) showed
+# Razorpay returning BAD_REQUEST_ERROR for a `gateway`-sourced failure, so the top
+# level code is NOT derivable from source. Where the real code is known it is
+# carried explicitly on the taxonomy entry; this table is the guess used for
+# archetypes not yet verified against live test mode.
 _ERROR_CODE_BY_SOURCE = {
     "customer": "BAD_REQUEST_ERROR",
     "business": "BAD_REQUEST_ERROR",
@@ -275,7 +277,9 @@ class Generator:
             )
 
             if entry is not None:
-                payment.error_code = _ERROR_CODE_BY_SOURCE.get(entry.source, "BAD_REQUEST_ERROR")
+                payment.error_code = entry.code or _ERROR_CODE_BY_SOURCE.get(
+                    entry.source, "BAD_REQUEST_ERROR"
+                )
                 payment.error_source = entry.source
                 payment.error_step = entry.step
                 payment.error_reason = entry.reason

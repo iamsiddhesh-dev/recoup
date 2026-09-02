@@ -123,8 +123,16 @@ failure_rate:
 #
 # `reason` is NOT exhaustively published; only examples appear in the docs
 # (`invalid_otp` is one). The strings below marked [ASSUMPTION] are plausible
-# but unverified, and must be reconciled against real test-mode responses when
-# the Razorpay adapter lands.
+# but unverified, and must be reconciled against real test-mode responses.
+#
+# [OBSERVED] marks values captured from an actual Razorpay test-mode webhook and
+# committed as tests/fixtures/live_payment_failed.json. Exactly one archetype has
+# been verified this way so far; the first live payment we ever ran disproved two
+# assumptions about it (see FAILURES.md), which is a reasonable prior for how much
+# the remaining [ASSUMPTION] rows are worth.
+#
+# `code` is only set where observed. It used to be derived from `source`, and the
+# live capture showed that derivation is wrong.
 #
 # This asymmetry is the reason the classifier keys primarily on (method, source,
 # step) — which is enumerable — and treats `reason` as a refinement with an LLM
@@ -139,7 +147,9 @@ error_taxonomy:
     # [DOCS] source ∈ {customer, business, internal, gateway, issuer_bank}
     # [DOCS] step   ∈ {payment_initiation, card_enrollment_check,
     #                  payment_authentication, payment_authorization, payment_capture}
-    - { weight: 0.24, cause: SOFT_ISSUER_DECLINE, source: issuer_bank, step: payment_authorization,   reason: payment_failed }            # [ASSUMPTION]
+    # [OBSERVED] Captured live: a declined test card returns source `gateway`
+    # (not `issuer_bank`, as originally assumed) with code BAD_REQUEST_ERROR.
+    - { weight: 0.24, cause: SOFT_ISSUER_DECLINE, source: gateway,     step: payment_authorization,   reason: payment_failed, code: BAD_REQUEST_ERROR }  # [OBSERVED]
     - { weight: 0.19, cause: INSUFFICIENT_FUNDS,  source: issuer_bank, step: payment_authorization,   reason: insufficient_funds }        # [ASSUMPTION]
     - { weight: 0.21, cause: AUTH_ABANDONED,      source: customer,    step: payment_authentication,  reason: invalid_otp }               # [DOCS]
     - { weight: 0.11, cause: AUTH_ABANDONED,      source: customer,    step: payment_authentication,  reason: payment_timeout }           # [ASSUMPTION]

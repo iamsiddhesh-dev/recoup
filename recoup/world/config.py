@@ -66,6 +66,12 @@ class TaxonomyEntry(BaseModel):
 
     `cause` is ground truth. It is used to decide what happens next and is never
     written onto the event the agent sees.
+
+    `code` is optional and, where set, was observed on a real Razorpay response.
+    It exists because the original design derived the top-level error code from
+    `source`, and a live capture disproved that: Razorpay returned
+    `BAD_REQUEST_ERROR` for a `gateway`-sourced failure. The two are independent,
+    so the code is carried as data where it is known rather than inferred.
     """
 
     weight: float
@@ -73,6 +79,7 @@ class TaxonomyEntry(BaseModel):
     source: str
     step: str
     reason: str
+    code: str | None = None
 
 
 class PaydaySpec(BaseModel):
