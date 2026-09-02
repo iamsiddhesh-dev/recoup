@@ -115,3 +115,68 @@ string is config that can miss silently. Everywhere a key has to correspond to
 something in code, that correspondence is now checked at load time rather than
 assumed, and the same reasoning is why `world.yaml` mixtures are validated on load
 rather than trusted.
+
+---
+
+## The baseline recovered nothing, because it never executed anything
+
+**Found by:** the first evaluation run, which reported ₹0 for the naive arm.
+
+The runner scheduled a chosen action for later, and when that moment arrived it
+called `decide()` again instead of carrying out the decision already made. The
+policy proposes offsets relative to *now*, so asking again at the scheduled time
+simply produced another future time. The naive arm deferred its first retry
+forever and executed nothing across a thirty-day horizon.
+
+The failure was loud — a zero is hard to miss — but it would have been easy to
+paper over. Any lift measured against a zero baseline is infinite, and a table
+showing the agent recovering money while the baseline recovers none reads like a
+spectacular result rather than a broken control arm.
+
+**Fixed:** scheduled actions carry their decision. `ACT` executes what was
+decided; `RECONSIDER` is a separate task that decides afresh. The runner also caps
+decisions per payment, so a bug in the compliance caps cannot turn into an
+unbounded loop.
+
+---
+
+## The agent sent 1,582 emails and nothing else
+
+**Found by:** reading the per-action breakdown rather than the summary table.
+
+Every channel was priced with the same response probability, so expected value
+differed only by cost, and email is the cheapest by an order of magnitude. The
+agent emailed everyone, forever, and the arithmetic was correct — the model was
+wrong. In India that is close to the worst available choice: transactional email
+goes unopened where WhatsApp gets read.
+
+The summary table showed a healthy recovery number and gave no hint of this. It
+was visible only in `actions_by_kind`.
+
+**Fixed:** per-channel response multipliers, in the world and in the agent's
+priors (deliberately not identical). The agent now uses a real mix — voice,
+WhatsApp, SMS — and recovers more from *fewer* contacts than a contact-only arm.
+
+---
+
+## The refusal list was 80,945 rows of noise
+
+**Found by:** the veto count being larger than the number of decisions.
+
+Two causes. The gate screens every retry-time variant, so one refused payment
+produced fifty near-identical vetoes differing only by scheduled hour. And the
+policy proposed human escalation for nearly every payment, which compliance
+refused ~1,450 times, because the arithmetic said escalation was worth it above
+about ₹1,200 while the operational cap was ₹50,000.
+
+Both made the refusal list unreadable, which matters: "here is what we
+deliberately did not touch, and why" is a deliverable, and a deliverable nobody
+can read is not one.
+
+**Fixed:** vetoes are deduplicated by rule per decision, options below the
+expected-value threshold are never put in front of the gate, and the policy skips
+channels the customer has not consented to. Escalation now carries a **scarcity
+premium** — fifty human slots against sixteen hundred failures means spending one
+on a small payment forecloses spending it on a large one, and that opportunity
+cost is real even though nothing invoices for it. Refusals fell from 80,945 to
+1,030, and now read as a compliance report.
