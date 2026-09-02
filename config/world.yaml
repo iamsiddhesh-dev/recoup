@@ -273,6 +273,26 @@ customers:
     voice: 1.60
     email: 0.45
 
+  # [ASSUMPTION] How much a contact helps, given what actually went wrong.
+  #
+  # This is what makes root-cause classification worth money rather than worth
+  # points. A message asking someone to complete a payment is close to useless
+  # while their bank is down — there is nothing they can do and the contact is
+  # spent — and highly effective when they merely abandoned an OTP.
+  #
+  # Without this the cause changes no decision for any failure that cannot be
+  # retried, which is 76% of them. The first ablation run measured the LLM's
+  # contribution as exactly zero for precisely that reason.
+  cause_response:
+    AUTH_ABANDONED: 1.45       # they only need to finish what they started
+    INSTRUMENT_INVALID: 1.15   # a clear ask: supply a different instrument
+    INSUFFICIENT_FUNDS: 0.85   # they know. they need money, not a reminder
+    SOFT_ISSUER_DECLINE: 0.75
+    MANDATE_PROBLEM: 0.60
+    TECHNICAL_GATEWAY: 0.30    # the bank is down. nothing they can do
+    CUSTOMER_INTENT: 0.25      # they already said no
+    RISK_BLOCKED: 0.00
+
 # ---------------------------------------------------------------------------
 # Issuer downtime
 # ---------------------------------------------------------------------------
