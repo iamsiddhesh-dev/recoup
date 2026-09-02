@@ -111,6 +111,7 @@ class CustomersConfig(BaseModel):
     segments: dict[str, SegmentSpec]
     consent_rate: dict[str, float]
     language: dict[Language, float]
+    channel_response: dict[str, float]
 
     @model_validator(mode="after")
     def _validate(self) -> Self:
