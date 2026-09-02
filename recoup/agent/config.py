@@ -40,9 +40,22 @@ class NudgeConfig(BaseModel):
     prior_completion: float
     decay_per_prior_contact: float
     channel_response: dict[str, float]
+    cause_response: dict[FailureCause, float]
+    unknown_cause_response: float
 
     def multiplier_for(self, channel: str) -> float:
         return self.channel_response.get(channel, 1.0)
+
+    def cause_multiplier(self, cause: FailureCause | None) -> float:
+        """How much a contact is worth, given what went wrong.
+
+        An unknown cause falls to a deliberately pessimistic floor: it might be an
+        abandoned OTP worth chasing or a bank outage worth ignoring, and spending a
+        contact to find out wastes goodwill.
+        """
+        if cause is None:
+            return self.unknown_cause_response
+        return self.cause_response.get(cause, self.unknown_cause_response)
 
 
 class DowntimePolicy(BaseModel):
