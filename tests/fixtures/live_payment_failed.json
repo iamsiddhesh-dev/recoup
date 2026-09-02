@@ -1,0 +1,59 @@
+{
+  "entity": "event",
+  "account_id": "acc_REDACTED",
+  "event": "payment.failed",
+  "contains": ["payment"],
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_TXBFd3gstvFtsQ",
+        "entity": "payment",
+        "amount": 10000,
+        "currency": "INR",
+        "status": "failed",
+        "order_id": "order_TXBBogl6xrW28M",
+        "invoice_id": null,
+        "international": false,
+        "method": "card",
+        "amount_refunded": 0,
+        "refund_status": null,
+        "captured": false,
+        "description": "#TXBBDj20NvTrA5",
+        "card_id": "card_TXBFdIJbwMjevc",
+        "card": {
+          "id": "card_TXBFdIJbwMjevc",
+          "entity": "card",
+          "name": "",
+          "last4": "1007",
+          "network": "Visa",
+          "type": "debit",
+          "issuer": "DCBL",
+          "international": false,
+          "emi": false,
+          "sub_type": "consumer",
+          "token_iin": "410028000"
+        },
+        "bank": null,
+        "wallet": null,
+        "vpa": null,
+        "email": "void@razorpay.com",
+        "contact": "+919000000000",
+        "notes": {
+          "customer_id": "probe",
+          "recoup_payment_id": "probe"
+        },
+        "fee": null,
+        "tax": null,
+        "error_code": "BAD_REQUEST_ERROR",
+        "error_description": "Payment failed",
+        "error_source": "gateway",
+        "error_step": "payment_authorization",
+        "error_reason": "payment_failed",
+        "acquirer_data": { "auth_code": null },
+        "created_at": 1788354759,
+        "reward": null
+      }
+    }
+  },
+  "created_at": 1788354801
+}
