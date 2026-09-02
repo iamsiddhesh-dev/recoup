@@ -180,3 +180,49 @@ premium** — fifty human slots against sixteen hundred failures means spending 
 on a small payment forecloses spending it on a large one, and that opportunity
 cost is real even though nothing invoices for it. Refusals fell from 80,945 to
 1,030, and now read as a compliance report.
+
+---
+
+## The LLM added exactly nothing, twice — for two different reasons
+
+**Found by:** running the ablation instead of assuming.
+
+**First time, it could not have helped.** The ablation arms came back byte-identical.
+The cause was a gap in the policy, not the model: `_nudge_candidate` priced a
+contact using amount, channel and prior contacts, and *not* the failure cause. So
+for any payment that could not be retried — 76% of them — knowing why it failed
+changed no decision. A classifier can only be worth something if something
+downstream reads its output.
+
+Fixed by adding per-cause response multipliers. Asking someone to complete a
+payment while their bank is down is close to useless; asking someone who abandoned
+an OTP usually works. Now the cause moves the arithmetic.
+
+**Second time, it genuinely did not help.** With the gap closed, the measured
+result on the committed seed:
+
+| | Recovered | Contacts |
+|---|---|---|
+| `recoup_agent_no_llm` | 3 (₹9,521) | 29 |
+| `recoup_agent` | 2 (₹9,282) | 28 |
+
+Across the whole run: −₹239 and −1 contact. Noise.
+
+The model is not wrong — it classified all three unresolved symptom types
+correctly, verified against ground truth the classifier cannot see. It is simply
+not worth much *here*, because 46 of the 51 failures it resolves are bank and
+wallet outages, where the correct action is "do not chase", and that is close to
+what the pessimistic unknown-cause default already produced. It bought precision
+on a population where the default was already approximately right.
+
+**This is reported rather than fixed.** The obvious way to manufacture a win would
+be to lower `unknown_cause_response` until the default is wrong enough for the
+model to look useful. That would be tuning the baseline to flatter the result, and
+the number it produced would mean nothing.
+
+**When it would matter,** and this is a testable claim rather than a hedge: the
+fallback's value scales with how *mixed* the unresolved population is. Here it is
+90% outages, so one guess fits nearly all of it. A population split evenly between
+"abandoned, chase them" and "outage, leave them alone" would punish a single
+default badly, and that is the workload where classification earns its cost. The
+sensitivity sweep can vary that share directly.
