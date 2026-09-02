@@ -36,6 +36,10 @@ packages = ["recoup"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# Tests here are functions, never classes. Left at the default, pytest tries to
+# collect any imported class named Test* — including the TestModeViolation
+# exception — and warns that it cannot.
+python_classes = ["*Tests"]
 
 [tool.ruff]
 line-length = 100
