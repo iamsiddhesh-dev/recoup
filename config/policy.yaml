@@ -1,0 +1,106 @@
+# ============================================================================
+# Recoup — policy engine
+# ============================================================================
+# The agent MAY read this file. Nothing here is ground truth: these are the
+# agent's own beliefs and costs, and it is free to be wrong about them. That is
+# the point — the world in config/world.yaml decides what actually happens.
+#
+# Decision rule, per failure:
+#
+#   EV(action) = P(recover | cause, issuer, attempt_n, hour, context)
+#                × amount × margin
+#              − cost(action)
+#              − annoyance_penalty(customer_contact_history)
+#
+#   choose argmax EV, then submit it to the compliance gate, which may veto.
+#
+# No model is in this loop. Action selection is arithmetic, and every decision
+# reports the numbers that produced it. See DECISIONS.md.
+# ============================================================================
+
+# Assumed contribution margin on recovered revenue. The agent optimises margin,
+# not gross — chasing a ₹200 recovery with a ₹40 human escalation is negative EV
+# even though it "recovers money".
+assumed_margin: 0.28
+
+# ---------------------------------------------------------------------------
+# Action costs, in paise
+# ---------------------------------------------------------------------------
+# Retries are near-free per attempt but not free in aggregate: repeated failed
+# authorisations against one instrument degrade the issuer relationship, which
+# is modelled as a small escalating cost rather than zero.
+action_costs:
+  RETRY_NOW:        200
+  RETRY_SCHEDULED:  200
+  SWITCH_METHOD:    200
+  SWITCH_ROUTE:     300
+  NUDGE_SMS:         15
+  NUDGE_WHATSAPP:    35
+  NUDGE_EMAIL:        3
+  NUDGE_VOICE:      120
+  ESCALATE_HUMAN:  4000
+  STOP:               0
+
+# Multiplier applied to retry cost per prior attempt on the same instrument.
+retry_cost_escalation: 1.8
+
+# ---------------------------------------------------------------------------
+# Annoyance
+# ---------------------------------------------------------------------------
+# The long-term cost of over-contacting a customer. Without this the optimiser
+# will nudge everyone constantly, because each individual nudge looks cheap and
+# slightly positive. Modelling goodwill as a real cost is what separates a
+# recovery product from a spam cannon.
+annoyance:
+  penalty_per_prior_contact: 900   # paise, applied per contact in the trailing window
+  window_days: 7
+  escalation: 1.6                  # superlinear: the third contact hurts more than the second
+
+# ---------------------------------------------------------------------------
+# The agent's prior beliefs about recovery
+# ---------------------------------------------------------------------------
+# Deliberately NOT copied from world.yaml. The agent starts with a rough,
+# slightly wrong prior and refines it from observed outcomes within the run.
+# If these matched the world exactly the evaluation would be meaningless.
+prior_recovery_probability:
+  SOFT_ISSUER_DECLINE: 0.30
+  INSUFFICIENT_FUNDS:  0.25
+  AUTH_ABANDONED:      0.40
+  TECHNICAL_GATEWAY:   0.55
+  INSTRUMENT_INVALID:  0.05
+  RISK_BLOCKED:        0.00
+  MANDATE_PROBLEM:     0.10
+  CUSTOMER_INTENT:     0.15
+
+# Minimum observations before the learned model overrides the prior for a
+# (cause, issuer, hour) cell. Below this, fall back to the prior — a single
+# lucky recovery must not move the policy.
+learning:
+  min_observations: 25
+  blend: shrinkage        # shrink toward the prior, weighted by sample size
+
+# ---------------------------------------------------------------------------
+# Scheduling
+# ---------------------------------------------------------------------------
+# Candidate retry offsets, in hours. The policy scores each against the learned
+# hour-of-day model and picks the best that survives compliance.
+retry_offsets_hours: [0, 1, 4, 12, 24, 48, 72, 120]
+
+# INSUFFICIENT_FUNDS gets payday-aware scheduling: if a salary-credit window is
+# within this horizon, prefer waiting for it over retrying immediately.
+payday_lookahead_days: 6
+
+# ---------------------------------------------------------------------------
+# Downtime gating
+# ---------------------------------------------------------------------------
+# Retrying into a known issuer outage burns an attempt against the cap for
+# nothing. When Razorpay's Payment Downtime API reports a live downtime for the
+# instrument's issuer or method, retries are deferred until it resolves.
+downtime:
+  defer_on_severity: [medium, high]
+  recheck_minutes: 15
+  max_defer_hours: 12
+
+# Below this expected value, do nothing. A positive but negligible EV is not
+# worth the customer contact or the operational noise.
+ev_threshold_paise: 500

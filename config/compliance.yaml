@@ -1,0 +1,128 @@
+# ============================================================================
+# Recoup — compliance gate
+# ============================================================================
+# Hard rules with veto power over the policy engine. These are applied AFTER the
+# expected-value calculation, never blended into it, and a veto is logged as its
+# own event with the rule that fired.
+#
+# The separation is deliberate and is the point of the design: a rule expressed
+# as a large negative cost can always be outvoted by a large enough amount. A
+# rule expressed as a veto cannot. Money is exactly the domain where "the model
+# decided the fine was worth paying" is an unacceptable answer.
+#
+# The vetoes this gate emits are what produce the refusal list — the cases
+# Recoup deliberately would not touch, and why. That list is a deliverable, not
+# an error log.
+#
+# No LLM participates in this file's enforcement.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Attempt caps
+# ---------------------------------------------------------------------------
+attempts:
+  max_per_payment: 4
+  max_per_instrument_per_day: 2
+
+  # Card networks limit retries against a hard decline. Exceeding them risks
+  # penalties, so this is a cap rather than a cost.
+  max_after_hard_decline: 1
+
+  # After this many consecutive failures on one instrument, stop entirely and
+  # require a new instrument.
+  cooling_off_after_failures: 3
+  cooling_off_hours: 72
+
+# ---------------------------------------------------------------------------
+# Customer contact
+# ---------------------------------------------------------------------------
+contact:
+  max_per_customer_per_7d: 2
+  min_hours_between_contacts: 20
+
+  # No outbound nudges outside these hours, local time. Applies to every channel
+  # including email, because a 3am payment-failure notification reads as alarming
+  # regardless of how cheap the channel is.
+  quiet_hours:
+    start: "21:00"
+    end: "09:00"
+    timezone: Asia/Kolkata
+
+  # Channels requiring explicit recorded consent. Without it the channel is
+  # vetoed no matter how positive its expected value.
+  consent_required: [whatsapp, voice]
+
+# ---------------------------------------------------------------------------
+# Hard stops — causes that are never retried
+# ---------------------------------------------------------------------------
+# Each entry is a cause from Recoup's taxonomy plus the reason the stop exists.
+# These are the rules most likely to be quietly dropped under deadline pressure,
+# so they are named individually rather than expressed as a list of codes.
+hard_stops:
+  RISK_BLOCKED:
+    retry: false
+    contact: false
+    why: >
+      The payment was declined by a risk system. Retrying is an attempt to route
+      around a control, and contacting the customer about it leaks the existence
+      of the block. Escalate to a human or stop.
+
+  MANDATE_REVOKED:
+    retry: false
+    contact: true
+    why: >
+      The customer withdrew authorisation. Debiting again is unauthorised
+      regardless of outcome. A single notification is permitted; a retry is not.
+
+  CUSTOMER_INTENT:
+    retry: false
+    contact: true
+    max_contacts: 1
+    why: >
+      The customer deliberately cancelled. One soft follow-up is reasonable;
+      anything beyond that is chasing someone who already said no.
+
+  INSTRUMENT_INVALID:
+    retry: false
+    contact: true
+    why: >
+      The instrument cannot succeed as-is — expired card, invalid VPA, unlinked
+      wallet. Retrying is guaranteed to fail and consumes the attempt cap. The
+      only path is the customer supplying a new instrument.
+
+# ---------------------------------------------------------------------------
+# Mandates
+# ---------------------------------------------------------------------------
+# Recurring debits carry obligations beyond the general rules above.
+mandate:
+  require_prenotification_hours: 24
+  respect_mandate_amount_cap: true
+  respect_mandate_end_date: true
+  max_debits_per_cycle: 1
+
+# ---------------------------------------------------------------------------
+# Escalation
+# ---------------------------------------------------------------------------
+escalation:
+  # Above this amount, a human reviews before any further automated action.
+  human_review_above_paise: 5000000
+
+  # An agent that escalates everything is not a product. Cap it, and report the
+  # cap being hit as an exception rather than silently dropping cases.
+  max_escalations_per_run: 50
+
+# ---------------------------------------------------------------------------
+# Execution safety
+# ---------------------------------------------------------------------------
+execution:
+  # The Razorpay adapter refuses to initialise against a key that is not test
+  # mode. Set false only with a real reason; nothing in this project needs it.
+  require_test_mode: true
+
+  # Cap total money actions per run. A runaway loop in a recovery agent is not a
+  # crash, it is a customer being charged repeatedly.
+  max_actions_per_run: 20000
+
+  # Every action must carry an idempotency key derived from
+  # (payment_id, attempt_n, action). Replays must not double-charge.
+  require_idempotency_key: true

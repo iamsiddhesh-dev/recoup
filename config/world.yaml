@@ -1,0 +1,229 @@
+# ============================================================================
+# Recoup — simulated world
+# ============================================================================
+# The agent never reads this file. Ground truth lives here and in recoup/world/
+# only; see tests/test_no_ground_truth_leak.py.
+#
+# Every value below is tagged:
+#
+#   [DOCS]       taken from Razorpay's public documentation, with the source URL.
+#   [ASSUMPTION] a modelling choice. Not measured, not cited. These are the
+#                honest weak point of any simulated evaluation, so they are all
+#                collected here rather than buried in code, and the load-bearing
+#                ones are swept by `recoup eval --sensitivity` to show whether
+#                results actually depend on them.
+#
+# If a number is wrong, it should be wrong *visibly* and in one place.
+# ============================================================================
+
+run:
+  seed: 20260902
+  batch_size: 5000
+  horizon_days: 30
+  currency: INR
+  timezone: Asia/Kolkata
+
+# ---------------------------------------------------------------------------
+# Payment method mix
+# ---------------------------------------------------------------------------
+# [ASSUMPTION] Shape of a mid-size Indian D2C merchant: UPI-dominant, cards
+# second, long tail. Directionally consistent with UPI's share of Indian retail
+# digital payments, but not fitted to a published dataset — treat as a modelling
+# choice and sweep it.
+method_mix:
+  upi: 0.62
+  card: 0.20
+  netbanking: 0.09
+  wallet: 0.06
+  emandate: 0.03
+
+# ---------------------------------------------------------------------------
+# Ticket sizes — lognormal, per method, in paise
+# ---------------------------------------------------------------------------
+# [ASSUMPTION] UPI skews to small tickets, emandate to recurring subscription
+# amounts, cards sit in between with a fatter tail.
+amounts:
+  upi:        { dist: lognormal, mu: 6.4, sigma: 0.9, min: 1000,  max: 20000000 }
+  card:       { dist: lognormal, mu: 7.6, sigma: 1.0, min: 5000,  max: 50000000 }
+  netbanking: { dist: lognormal, mu: 8.1, sigma: 1.1, min: 10000, max: 80000000 }
+  wallet:     { dist: lognormal, mu: 5.9, sigma: 0.8, min: 1000,  max: 5000000 }
+  emandate:   { dist: lognormal, mu: 7.2, sigma: 0.5, min: 9900,  max: 10000000 }
+
+# [ASSUMPTION] Contribution margin on recovered revenue. The EV engine optimises
+# margin, not gross, so this materially changes which actions are worth taking.
+merchant_margin: 0.28
+
+# ---------------------------------------------------------------------------
+# First-attempt failure rates
+# ---------------------------------------------------------------------------
+# [ASSUMPTION] Per-method first-attempt failure probability. This sets the size
+# of the recoverable pool and is the single most load-bearing assumption in the
+# model — it is swept first.
+failure_rate:
+  upi: 0.28
+  card: 0.34
+  netbanking: 0.31
+  wallet: 0.19
+  emandate: 0.41
+
+# ---------------------------------------------------------------------------
+# Error taxonomy
+# ---------------------------------------------------------------------------
+# `source` and `step` values are [DOCS] — Razorpay enumerates them exhaustively
+# per payment method:
+#   https://razorpay.com/docs/errors/
+#   https://razorpay.com/docs/errors/payments/payment-methods-error-parameters/
+#
+# `reason` is NOT exhaustively published; only examples appear in the docs
+# (`invalid_otp` is one). The strings below marked [ASSUMPTION] are plausible
+# but unverified, and must be reconciled against real test-mode responses when
+# the Razorpay adapter lands.
+#
+# This asymmetry is the reason the classifier keys primarily on (method, source,
+# step) — which is enumerable — and treats `reason` as a refinement with an LLM
+# fallback for novel values. See DECISIONS.md.
+#
+# `cause` is Recoup's own recovery-relevant taxonomy, not Razorpay's.
+# `weight` is the share of that method's failures. Each block sums to 1.0.
+
+error_taxonomy:
+
+  card:
+    # [DOCS] source ∈ {customer, business, internal, gateway, issuer_bank}
+    # [DOCS] step   ∈ {payment_initiation, card_enrollment_check,
+    #                  payment_authentication, payment_authorization, payment_capture}
+    - { weight: 0.24, cause: SOFT_ISSUER_DECLINE, source: issuer_bank, step: payment_authorization,   reason: payment_failed }            # [ASSUMPTION]
+    - { weight: 0.19, cause: INSUFFICIENT_FUNDS,  source: issuer_bank, step: payment_authorization,   reason: insufficient_funds }        # [ASSUMPTION]
+    - { weight: 0.21, cause: AUTH_ABANDONED,      source: customer,    step: payment_authentication,  reason: invalid_otp }               # [DOCS]
+    - { weight: 0.11, cause: AUTH_ABANDONED,      source: customer,    step: payment_authentication,  reason: payment_timeout }           # [ASSUMPTION]
+    - { weight: 0.10, cause: TECHNICAL_GATEWAY,   source: gateway,     step: payment_authorization,   reason: gateway_technical_error }   # [ASSUMPTION]
+    - { weight: 0.08, cause: INSTRUMENT_INVALID,  source: customer,    step: card_enrollment_check,   reason: card_expired }              # [ASSUMPTION]
+    - { weight: 0.04, cause: RISK_BLOCKED,        source: internal,    step: payment_initiation,      reason: payment_blocked_risk }      # [ASSUMPTION]
+    - { weight: 0.03, cause: CUSTOMER_INTENT,     source: customer,    step: payment_authentication,  reason: payment_cancelled }         # [ASSUMPTION]
+
+  upi:
+    # [DOCS] source ∈ {customer, business, internal, customer_psp, gateway,
+    #                  network, issuer_bank, beneficiary_bank}
+    # [DOCS] step: the collect/intent flow enumerates payment_initiation,
+    #        payment_creation, payment_authentication, payment_request,
+    #        payment_debit_request/response, payment_credit_request/response,
+    #        payment_status_request/response, payment_response
+    - { weight: 0.34, cause: AUTH_ABANDONED,      source: customer,     step: payment_authentication, reason: payment_timeout }           # [ASSUMPTION]
+    - { weight: 0.18, cause: INSUFFICIENT_FUNDS,  source: issuer_bank,  step: payment_debit_request,  reason: insufficient_funds }        # [ASSUMPTION]
+    - { weight: 0.15, cause: TECHNICAL_GATEWAY,   source: network,      step: payment_debit_response, reason: npci_unavailable }          # [ASSUMPTION]
+    - { weight: 0.12, cause: SOFT_ISSUER_DECLINE, source: issuer_bank,  step: payment_debit_request,  reason: payment_declined }          # [ASSUMPTION]
+    - { weight: 0.09, cause: TECHNICAL_GATEWAY,   source: customer_psp, step: payment_request,        reason: psp_unavailable }           # [ASSUMPTION]
+    - { weight: 0.07, cause: INSTRUMENT_INVALID,  source: customer,     step: payment_initiation,     reason: invalid_vpa }               # [ASSUMPTION]
+    - { weight: 0.05, cause: CUSTOMER_INTENT,     source: customer,     step: payment_authentication, reason: payment_cancelled }         # [ASSUMPTION]
+
+  netbanking:
+    # [DOCS] source ∈ {customer, business, internal, issuer_bank}
+    # [DOCS] step   ∈ {payment_initiation, payment_authentication, payment_authorization}
+    - { weight: 0.38, cause: AUTH_ABANDONED,      source: customer,    step: payment_authentication, reason: payment_timeout }            # [ASSUMPTION]
+    - { weight: 0.24, cause: TECHNICAL_GATEWAY,   source: issuer_bank, step: payment_authentication, reason: bank_unavailable }           # [ASSUMPTION]
+    - { weight: 0.20, cause: INSUFFICIENT_FUNDS,  source: issuer_bank, step: payment_authorization,  reason: insufficient_funds }         # [ASSUMPTION]
+    - { weight: 0.13, cause: SOFT_ISSUER_DECLINE, source: issuer_bank, step: payment_authorization,  reason: payment_declined }           # [ASSUMPTION]
+    - { weight: 0.05, cause: CUSTOMER_INTENT,     source: customer,    step: payment_authentication, reason: payment_cancelled }          # [ASSUMPTION]
+
+  wallet:
+    # [DOCS] source ∈ {customer, business, internal, issuer}
+    # [DOCS] step   ∈ {payment_initiation, payment_eligibility_check,
+    #                  payment_authentication, payment_authorization}
+    - { weight: 0.42, cause: INSUFFICIENT_FUNDS,  source: issuer,   step: payment_authorization,     reason: insufficient_balance }       # [ASSUMPTION]
+    - { weight: 0.28, cause: AUTH_ABANDONED,      source: customer, step: payment_authentication,    reason: invalid_otp }                # [DOCS]
+    - { weight: 0.18, cause: TECHNICAL_GATEWAY,   source: issuer,   step: payment_eligibility_check, reason: wallet_unavailable }         # [ASSUMPTION]
+    - { weight: 0.12, cause: INSTRUMENT_INVALID,  source: customer, step: payment_eligibility_check, reason: wallet_not_linked }          # [ASSUMPTION]
+
+  emandate:
+    # [DOCS] source ∈ {customer, bank, business, internal, gateway, issuer_bank}
+    # [DOCS] step   ∈ {payment_initiation, payment_authentication, payment_authorization}
+    - { weight: 0.44, cause: INSUFFICIENT_FUNDS,  source: issuer_bank, step: payment_authorization,  reason: insufficient_funds }         # [ASSUMPTION]
+    - { weight: 0.23, cause: MANDATE_PROBLEM,     source: bank,        step: payment_initiation,     reason: mandate_revoked }            # [ASSUMPTION]
+    - { weight: 0.14, cause: MANDATE_PROBLEM,     source: bank,        step: payment_authorization,  reason: mandate_limit_exceeded }     # [ASSUMPTION]
+    - { weight: 0.12, cause: SOFT_ISSUER_DECLINE, source: issuer_bank, step: payment_authorization,  reason: payment_declined }           # [ASSUMPTION]
+    - { weight: 0.07, cause: TECHNICAL_GATEWAY,   source: gateway,     step: payment_initiation,     reason: gateway_technical_error }    # [ASSUMPTION]
+
+# ---------------------------------------------------------------------------
+# Recovery behaviour — the world's hidden truth
+# ---------------------------------------------------------------------------
+# [ASSUMPTION] Probability that a retry succeeds, given cause and attempt number.
+# The agent never sees these; it must learn timing from observed outcomes.
+# Decay reflects that a cause which has already refused twice rarely relents.
+recovery:
+  base_probability:
+    SOFT_ISSUER_DECLINE: 0.34
+    INSUFFICIENT_FUNDS:  0.29
+    AUTH_ABANDONED:      0.46
+    TECHNICAL_GATEWAY:   0.61
+    INSTRUMENT_INVALID:  0.02   # only recoverable via a new instrument
+    RISK_BLOCKED:        0.00   # never retried; hard stop
+    MANDATE_PROBLEM:     0.08
+    CUSTOMER_INTENT:     0.11
+
+  # [ASSUMPTION] Multiplier applied per additional attempt on the same instrument.
+  attempt_decay: 0.62
+
+  # [ASSUMPTION] Hour-of-day multiplier (IST, 0-23) on retry success. Modelled as
+  # a bank-processing effect: overnight batch windows are worse, mid-morning and
+  # early evening are better.
+  hour_multiplier:
+    [0.72, 0.68, 0.64, 0.62, 0.66, 0.78, 0.92, 1.04, 1.14, 1.18, 1.16, 1.10,
+     1.02, 0.98, 1.00, 1.06, 1.12, 1.15, 1.11, 1.04, 0.96, 0.90, 0.84, 0.78]
+
+  # [ASSUMPTION] INSUFFICIENT_FUNDS is strongly payday-sensitive in India.
+  # Salary credit clusters at month start.
+  payday:
+    days_of_month: [1, 2, 3, 4, 5]
+    multiplier: 2.1
+
+# ---------------------------------------------------------------------------
+# Customers
+# ---------------------------------------------------------------------------
+# [ASSUMPTION] Segments differ in how likely they are to act on a nudge and how
+# much repeated contact costs goodwill.
+customers:
+  count: 1800
+  segments:
+    responsive:   { share: 0.30, nudge_response: 0.42, annoyance_sensitivity: 0.6 }
+    average:      { share: 0.50, nudge_response: 0.21, annoyance_sensitivity: 1.0 }
+    unreachable:  { share: 0.20, nudge_response: 0.04, annoyance_sensitivity: 1.7 }
+
+  # [ASSUMPTION] Consent for WhatsApp/voice. Absent consent, the compliance gate
+  # vetoes those channels outright regardless of expected value.
+  consent_rate:
+    whatsapp: 0.61
+    voice: 0.38
+    email: 0.94
+    sms: 0.99
+
+  # [ASSUMPTION] Language preference drives nudge copy generation.
+  language:
+    hinglish: 0.54
+    english: 0.38
+    regional: 0.08
+
+# ---------------------------------------------------------------------------
+# Issuer downtime
+# ---------------------------------------------------------------------------
+# Modelled on Razorpay's real Payment Downtime API, which the agent consumes as
+# its degradation signal: https://razorpay.com/docs/api/payments/downtime/
+# [DOCS] event shape and severity levels; [ASSUMPTION] frequency and duration.
+#
+# This exists to create the trap the policy engine must avoid: retrying into a
+# known issuer outage burns attempts against the retry cap for nothing.
+downtime:
+  events_per_horizon: 7
+  duration_minutes: { min: 20, max: 240 }
+  severity_mix: { low: 0.4, medium: 0.4, high: 0.2 }
+  success_multiplier: { low: 0.75, medium: 0.40, high: 0.08 }
+
+issuers:
+  # [ASSUMPTION] Named banks with differing reliability, so root-cause analysis
+  # has something real to find. Names are illustrative, not benchmarks.
+  - { code: HDFC, share: 0.22, reliability: 1.08 }
+  - { code: ICIC, share: 0.18, reliability: 1.04 }
+  - { code: SBIN, share: 0.20, reliability: 0.88 }
+  - { code: UTIB, share: 0.14, reliability: 1.02 }
+  - { code: KKBK, share: 0.10, reliability: 1.06 }
+  - { code: PUNB, share: 0.09, reliability: 0.82 }
+  - { code: YESB, share: 0.07, reliability: 0.94 }
