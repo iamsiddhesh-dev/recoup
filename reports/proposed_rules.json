@@ -1,0 +1,32 @@
+[
+  {
+    "cause": "TECHNICAL_GATEWAY",
+    "rationale": "The issuer bank is temporarily unavailable during the authentication step, indicating an infrastructure outage.",
+    "symptoms": {
+      "method": "netbanking",
+      "reason": "bank_unavailable",
+      "source": "issuer_bank",
+      "step": "payment_authentication"
+    }
+  },
+  {
+    "cause": "INSTRUMENT_INVALID",
+    "rationale": "The wallet is not linked to the account and cannot be charged without re-linking or providing a new payment instrument.",
+    "symptoms": {
+      "method": "wallet",
+      "reason": "wallet_not_linked",
+      "source": "customer",
+      "step": "payment_eligibility_check"
+    }
+  },
+  {
+    "cause": "TECHNICAL_GATEWAY",
+    "rationale": "The wallet provider system is unreachable or down during the eligibility check, representing a transient infrastructure failure.",
+    "symptoms": {
+      "method": "wallet",
+      "reason": "wallet_unavailable",
+      "source": "issuer",
+      "step": "payment_eligibility_check"
+    }
+  }
+]
