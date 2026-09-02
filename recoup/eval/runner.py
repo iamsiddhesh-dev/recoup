@@ -94,7 +94,9 @@ class Runner:
         # history must not leak between experiments. The *world* is shared, and
         # so is its randomness — that is the point.
         adapter = SimulatedAdapter(self._world, self._batch, self._issuers, self._population)
-        notifier = SimulatedNotifier(self._world, self._population, self._issuers)
+        notifier = SimulatedNotifier(
+            self._world, self._population, self._issuers, self._batch
+        )
 
         context_builder = ContextBuilder(self._policy)
         executor = Executor(
@@ -160,7 +162,9 @@ class Runner:
         payment = item.payment
         assert payment is not None
 
-        classification = self._classifier.classify(payment)
+        # Each arm classifies with its own classifier. The ablation depends on it:
+        # the two agent arms differ only in whether an LLM fallback is attached.
+        classification = arm.classifier.classify(payment)
 
         if item.task is Task.INGEST:
             events.append(
