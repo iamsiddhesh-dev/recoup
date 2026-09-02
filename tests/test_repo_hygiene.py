@@ -9,6 +9,7 @@ working tree at all.
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -16,15 +17,32 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Razorpay key IDs are a fixed prefix followed by an alphanumeric body.
 KEY_PATTERN = re.compile(r"rzp_" + r"(?:live|test)_" + r"[A-Za-z0-9]{10,}")
 
-SKIP_DIRS = {".git", ".venv", "venv", "__pycache__", "node_modules", ".pytest_cache"}
 SKIP_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".pdf", ".db", ".sqlite3", ".duckdb"}
 
 
 def _candidate_files():
-    for path in REPO_ROOT.rglob("*"):
+    """Everything git would actually publish: tracked, plus untracked-not-ignored.
+
+    Deliberately *not* a walk of the working tree. `.env` holds live test-mode
+    credentials by design — that is what the file is for — and it is gitignored,
+    so it can never reach the repository. Scanning it would make this test fail
+    for anyone who configured the project correctly, and a test that fails when
+    you do the right thing gets deleted rather than fixed.
+
+    `--exclude-standard` applies .gitignore, so a secret in a new untracked file
+    is still caught, which is the case that actually matters.
+    """
+    result = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    for line in result.stdout.splitlines():
+        path = REPO_ROOT / line
         if not path.is_file():
-            continue
-        if SKIP_DIRS & set(path.parts):
             continue
         if path.suffix.lower() in SKIP_SUFFIXES:
             continue
