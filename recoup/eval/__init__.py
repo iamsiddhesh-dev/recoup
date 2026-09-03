@@ -9,6 +9,7 @@ from recoup.agent.classify import Classifier
 from recoup.agent.config import ComplianceConfig, PolicyConfig
 from recoup.agent.llm.classifier import LLMFallbackClassifier
 from recoup.agent.llm.client import LLMClient, LLMUnavailable
+from recoup.agent.llm.copywriter import Copywriter
 from recoup.eval.arms import build_arms
 from recoup.eval.metrics import ArmMetrics, score
 from recoup.eval.runner import Runner
@@ -78,6 +79,18 @@ def run_all(
 
     llm = _llm_classifier(batch, offline) if use_llm else None
 
+    # Warmed once for the whole experiment, and shared by every arm. Generating
+    # copy is a rendering concern rather than a policy one, so holding it constant
+    # keeps the arms comparable.
+    copywriter = Copywriter(client=LLMClient(offline=offline)) if use_llm else Copywriter(
+        use_llm=False
+    )
+    if use_llm:
+        try:
+            copywriter.warm()
+        except LLMUnavailable:
+            pass  # falls back to the hand-written templates
+
     runner = Runner(
         world=world,
         policy=policy,
@@ -86,6 +99,7 @@ def run_all(
         population=population,
         issuers=issuers,
         ledger=ledger,
+        copywriter=copywriter,
     )
 
     arms = build_arms(policy, compliance, llm)
