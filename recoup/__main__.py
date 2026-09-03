@@ -370,6 +370,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Every money figure this prints carries a rupee sign, and on Windows both the
+    # console and a redirected pipe default to a legacy code page that has no
+    # codepoint for it. Without this, `recoup eval > out.txt` raises
+    # UnicodeEncodeError on the first row of the arms table.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
     load_dotenv()
 
     parser = build_parser()
