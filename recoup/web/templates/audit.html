@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Audit &amp; Refusals · Recoup{% endblock %}
+{% block heading %}Audit &amp; Refusals{% endblock %}
+
+{% block content %}
+
+{% if not audit %}
+  <div class="card">
+    <div class="empty">
+      <div class="empty__title">No run to audit yet</div>
+      <p>Generate one and every refusal it made appears here, with the rule that
+         caused it.</p>
+      <code class="empty__hint">python -m recoup demo</code>
+    </div>
+  </div>
+{% else %}
+
+{# -- integrity ---------------------------------------------------------- #}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">The record</h2>
+    <span class="card__note">
+      what follows is only worth reading if this cannot have been edited
+    </span>
+  </div>
+  <div class="card__body">
+    <div class="facts">
+      <div class="fact">
+        <span class="label">Events</span>
+        <span class="fact__value">{{ audit.total_events | int_comma }}</span>
+      </div>
+      <div class="fact">
+        <span class="label">Stream hash</span>
+        <span class="fact__value" style="font-size: var(--fs-sm)">{{ audit.digest }}…</span>
+      </div>
+      <div class="fact">
+        <span class="label">Matches hash at write</span>
+        <span class="fact__value" style="font-size: var(--fs-base)">
+          {% if audit.replay_ok %}
+            <span class="tag tag--recovered">verified</span>
+          {% else %}
+            <span class="tag tag--risk">not recorded</span>
+          {% endif %}
+        </span>
+      </div>
+      <div class="fact">
+        <span class="label">Append-only</span>
+        <span class="fact__value" style="font-size: var(--fs-base)">
+          {% if audit.triggers %}
+            <span class="tag tag--recovered">{{ audit.triggers | length }} triggers</span>
+          {% else %}
+            <span class="tag tag--lost">not enforced</span>
+          {% endif %}
+        </span>
+      </div>
+    </div>
+
+    <p class="small dim" style="margin: var(--s4) 0 0">
+      The hash is recomputed from the event stream on every load and compared with
+      the one taken when the run was written. Updates and deletes are refused by
+      the database itself
+      {%- if audit.triggers %} ({{ audit.triggers | join(", ") }}){% endif %},
+      not by convention — a ledger that is append-only by good intentions stops
+      being append-only the first time someone is debugging at 1am.
+    </p>
+
+    <div class="row small dim" style="margin-top: var(--s3); flex-wrap: wrap; gap: var(--s4)">
+      {% for kind, count in audit.by_kind | dictsort %}
+        <span><span class="mono">{{ count | int_comma }}</span> {{ kind }}</span>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# -- headline ----------------------------------------------------------- #}
+<section class="stats">
+  <div class="stat">
+    <span class="label">Actions refused</span>
+    <span class="stat__value">{{ audit.refusals | int_comma }}</span>
+    <span class="stat__detail">across {{ audit.payments_touched | int_comma }} payments</span>
+  </div>
+
+  <div class="stat">
+    <span class="label">Touched a rule, never recovered</span>
+    <span class="stat__value">{{ audit.abandoned_amount | rupees }}</span>
+    <span class="stat__detail">
+      {{ audit.abandoned_count | int_comma }} payments &mdash; not the cost of compliance
+    </span>
+  </div>
+
+  <div class="stat">
+    <span class="label">Blocked, recovered anyway</span>
+    <span class="stat__value">{{ audit.recovered_anyway_amount | rupees }}</span>
+    <span class="stat__detail">
+      {{ audit.recovered_anyway_count | int_comma }} payments that found another route
+    </span>
+  </div>
+</section>
+
+<div class="banner">
+  <div>
+    <div class="banner__title">The middle figure is not what compliance cost</div>
+    <p class="dim" style="margin: var(--s1) 0 0">
+      It is the money in payments where at least one action was refused
+      <em>and</em> which never recovered. For most of them the refusal was not the
+      reason: they had already exhausted their retries, or nothing left on the
+      table cleared the expected-value threshold. Separating those would need a
+      counterfactual run per payment, which is not something this screen can
+      honestly claim to have done.
+    </p>
+  </div>
+</div>
+
+{# -- rules -------------------------------------------------------------- #}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">What stopped us</h2>
+    <span class="card__note">largest exposure first</span>
+  </div>
+  <div class="card__body card__body--flush table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Rule</th>
+          <th class="num">Refusals</th>
+          <th class="num">Payments</th>
+          <th class="money">Money involved</th>
+          <th>Actions blocked</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rule in audit.rules %}
+          <tr>
+            <td>
+              <div>{{ rule.headline }}</div>
+              <div class="small dim mono">{{ rule.rule }}</div>
+            </td>
+            <td class="num">{{ rule.refusals | int_comma }}</td>
+            <td class="num">{{ rule.payments | int_comma }}</td>
+            <td class="money">{{ rule.amount | rupees }}</td>
+            <td class="small dim mono">{{ rule.actions | join(", ") }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card__body stack">
+    <p class="small dim" style="margin: 0">
+      A payment can be stopped by more than one rule, so these amounts overlap and
+      do not sum to the total above. Each row is the money in payments that rule
+      touched, not money lost to it.
+    </p>
+
+    {% if audit.dormant %}
+      <p class="small dim" style="margin: 0">
+        <strong class="dim">Never had to fire:</strong>
+        <span class="mono">{{ audit.dormant | join(", ") }}</span>.
+        These are not inactive. The policy declines to propose retries or messages
+        for those causes on economic grounds — a blocked card cannot succeed and a
+        risk decline is worth nothing — so compliance is never asked to refuse
+        them on principle. Both layers working looks, from the gate's side, like
+        one layer doing nothing.
+      </p>
+    {% endif %}
+  </div>
+</section>
+
+{# -- the list ----------------------------------------------------------- #}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">What we deliberately did not do</h2>
+    <span class="card__note">
+      showing {{ audit.refused | length | int_comma }}, largest first
+    </span>
+  </div>
+  <div class="card__body card__body--flush table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Payment</th>
+          <th class="money">Amount</th>
+          <th>Cause</th>
+          <th>Rules that fired</th>
+          <th>Outcome</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in audit.refused[:200] %}
+          <tr class="link-row"
+              onclick="location.href='/case/{{ row.payment_id }}?arm={{ audit.arm }}'">
+            <td><a href="/case/{{ row.payment_id }}?arm={{ audit.arm }}">{{ row.payment_id }}</a></td>
+            <td class="money">{{ row.amount | rupees }}</td>
+            <td class="small">
+              {% if row.cause %}{{ row.cause }}{% else %}<span class="dim">unclassified</span>{% endif %}
+            </td>
+            <td class="small dim mono">{{ row.rules | join(", ") }}</td>
+            <td>
+              {% if row.outcome == "recovered" %}
+                <span class="tag tag--recovered">recovered anyway</span>
+              {% else %}
+                <span class="tag tag--refused">not recovered</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endif %}
+{% endblock %}
