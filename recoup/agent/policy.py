@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from recoup.agent.actions import ActionKind, Candidate, Decision
+from recoup.agent.actions import ActionKind, Candidate, Decision, explain
 from recoup.agent.config import PolicyConfig
 from recoup.agent.context import DecisionContext
 from recoup.domain import Channel, FailureCause
@@ -336,35 +336,18 @@ class PolicyEngine:
 
 
 def _explain(candidate: Candidate, context: DecisionContext) -> str:
-    """One sentence a merchant could check against the numbers."""
-    rupees = context.amount / 100
-    cause = context.cause or "an unclassified failure"
+    """One sentence a merchant could check against the numbers.
 
-    if candidate.action.is_retry:
-        when = (
-            "now"
-            if candidate.delay_hours < 1
-            else f"in {candidate.delay_hours:.0f}h ({candidate.at:%a %H:%M})"
-        )
-        return (
-            f"Retry {when}: {cause} on ₹{rupees:,.0f} has an estimated "
-            f"{candidate.probability:.0%} chance of clearing, worth "
-            f"₹{candidate.ev / 100:,.0f} net."
-        )
-
-    if candidate.action.is_contact:
-        return (
-            f"Contact by {candidate.action.channel}: {cause} needs the customer to "
-            f"act on ₹{rupees:,.0f}, estimated {candidate.probability:.0%} to "
-            f"recover, worth ₹{candidate.ev / 100:,.0f} net after "
-            f"{candidate.breakdown.get('prior_contacts', 0)} prior contacts."
-        )
-
-    if candidate.action is ActionKind.ESCALATE_HUMAN:
-        return (
-            f"Escalate: ₹{rupees:,.0f} is large enough that human review at "
-            f"₹{candidate.breakdown['cost'] / 100:,.0f}, resolving an estimated "
-            f"{candidate.probability:.0%}, still nets ₹{candidate.ev / 100:,.0f}."
-        )
-
-    return "Stop."
+    Delegates to the shared `explain`, which the case screen also calls when
+    regenerating this sentence from the stored breakdown. Two call sites, one
+    implementation — otherwise the terminal and the screen would eventually
+    describe the same decision differently.
+    """
+    return explain(
+        action=candidate.action,
+        breakdown=candidate.breakdown,
+        at=context.now,
+        ev=candidate.ev,
+        probability=candidate.probability,
+        cause=str(context.cause) if context.cause else None,
+    )

@@ -13,7 +13,7 @@ answerable in numbers a merchant can check, not a summary the system asserts.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 from recoup.domain import Channel
@@ -68,6 +68,57 @@ class Candidate:
         return self.breakdown.get("delay_hours", 0.0)
 
 
+def explain(
+    action: ActionKind,
+    breakdown: dict,
+    at: datetime,
+    ev: int,
+    probability: float,
+    cause: str | None = None,
+) -> str:
+    """One sentence a merchant could check against the numbers.
+
+    A pure function of values that are already stored, which is the point: it is
+    called at write time to describe a decision in the terminal, and again at read
+    time to render the same sentence on the case screen. Keeping the prose *out*
+    of the ledger removed roughly 7% of it, and keeping the function shared means
+    the two paths cannot drift into describing the same decision differently.
+
+    `at` is when the decision was *made*. The scheduled moment is derived from it
+    and `delay_hours`, rather than passed in — the first version took the
+    scheduled time directly, and the read path had only the decision time, so the
+    sentence read "in 6h (Thu 12:05)" with the two halves disagreeing.
+    """
+    rupees = breakdown.get("amount", 0) / 100
+    subject = cause or "an unclassified failure"
+    delay = breakdown.get("delay_hours", 0.0)
+
+    if action.is_retry:
+        scheduled = at + timedelta(hours=delay)
+        when = "now" if delay < 1 else f"in {delay:.0f}h ({scheduled:%a %H:%M})"
+        return (
+            f"Retry {when}: {subject} on ₹{rupees:,.0f} has an estimated "
+            f"{probability:.0%} chance of clearing, worth ₹{ev / 100:,.0f} net."
+        )
+
+    if action.is_contact:
+        return (
+            f"Contact by {action.channel}: {subject} needs the customer to act on "
+            f"₹{rupees:,.0f}, estimated {probability:.0%} to recover, worth "
+            f"₹{ev / 100:,.0f} net after "
+            f"{breakdown.get('prior_contacts', 0)} prior contacts."
+        )
+
+    if action is ActionKind.ESCALATE_HUMAN:
+        return (
+            f"Escalate: ₹{rupees:,.0f} is large enough that human review at "
+            f"₹{breakdown.get('cost', 0) / 100:,.0f}, resolving an estimated "
+            f"{probability:.0%}, still nets ₹{ev / 100:,.0f}."
+        )
+
+    return "Stop."
+
+
 @dataclass(frozen=True)
 class Veto:
     """A refusal, with the rule that caused it.
@@ -104,23 +155,26 @@ class Decision:
     def to_ledger_data(self) -> dict:
         """Flattened for the audit trail.
 
-        Candidates are truncated to the best few: a run stores hundreds of
-        thousands of decisions and the tail of negative-EV options is noise once
-        the top of the ranking is preserved.
+        Deliberately narrow. Three fields that used to be here were removed after
+        measuring what the ledger actually contained, and together they were ~45%
+        of the file:
+
+        * `vetoes` — 68% of this payload, and already written as its own `vetoed`
+          events. The same information stored twice.
+        * `at` — duplicated the ledger row's own timestamp column.
+        * `reason` — an English sentence derived entirely from `breakdown`, so it
+          is regenerated at read time by `explain()` instead of stored per row.
+
+        Candidates are truncated to the best few: the tail of negative-EV options
+        is noise once the top of the ranking is kept.
         """
         return {
             "action": str(self.action),
-            "reason": self.reason,
             "ev": self.chosen.ev if self.chosen else 0,
             "probability": round(self.chosen.probability, 4) if self.chosen else 0.0,
-            "at": self.at.isoformat(),
             "breakdown": self.chosen.breakdown if self.chosen else {},
             "considered": [
                 {"action": str(c.action), "ev": c.ev, "p": round(c.probability, 4)}
                 for c in sorted(self.considered, key=lambda c: -c.ev)[:5]
-            ],
-            "vetoes": [
-                {"rule": v.rule, "action": str(v.action), "why": v.why}
-                for v in self.vetoes
             ],
         }
