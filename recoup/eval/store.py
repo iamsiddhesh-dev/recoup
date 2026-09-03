@@ -32,6 +32,7 @@ from recoup.ledger.events import Ledger
 DEFAULT_DIR = Path("data")
 LEDGER_NAME = "run.db"
 SUMMARY_NAME = "run.json"
+EXPLANATIONS_NAME = "explanations.json"
 
 
 @dataclass
@@ -127,6 +128,28 @@ def open_ledger(directory: str | Path = DEFAULT_DIR) -> Ledger | None:
     return Ledger(path) if path.exists() else None
 
 
+def save_explanations(explanations: dict[str, dict], directory: str | Path = DEFAULT_DIR) -> Path:
+    """Case narratives, written beside the run they describe.
+
+    Kept out of `run.json` because they belong to a different lifecycle: the
+    summary is arithmetic over the ledger and always present, while these depend
+    on a model and may legitimately be absent. A screen that needs the first
+    should not have to parse the second.
+    """
+    path = Path(directory) / EXPLANATIONS_NAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(explanations, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def load_explanations(directory: str | Path = DEFAULT_DIR) -> dict[str, dict]:
+    """Empty rather than None: no explanations is a normal state, not an error."""
+    path = Path(directory) / EXPLANATIONS_NAME
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def clear(directory: str | Path = DEFAULT_DIR) -> None:
-    for name in (LEDGER_NAME, SUMMARY_NAME):
+    for name in (LEDGER_NAME, SUMMARY_NAME, EXPLANATIONS_NAME):
         (Path(directory) / name).unlink(missing_ok=True)
