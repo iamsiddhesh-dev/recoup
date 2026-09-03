@@ -278,12 +278,26 @@ class LLMClient:
         for provider in self.providers:
             if not provider.available():
                 continue
-            try:
-                started = time.monotonic()
-                text = provider.complete(system, prompt)
-                latency = int((time.monotonic() - started) * 1000)
-            except Exception as exc:  # noqa: BLE001 — any provider failure falls through
-                last_error = exc
+
+            text = None
+            for attempt in range(2):
+                try:
+                    started = time.monotonic()
+                    text = provider.complete(system, prompt)
+                    latency = int((time.monotonic() - started) * 1000)
+                    break
+                except Exception as exc:  # noqa: BLE001 — any failure falls through
+                    last_error = exc
+                    # A 503 means the model is busy, not that it will not answer.
+                    # Gemini returned one mid-build with "spikes in demand are
+                    # usually temporary"; falling straight through to a weaker
+                    # provider on that would be giving up early.
+                    if attempt == 0 and _is_transient(exc):
+                        time.sleep(2.0)
+                        continue
+                    break
+
+            if text is None:
                 continue
 
             self.calls_made += 1
@@ -336,6 +350,16 @@ class LLMClient:
             except ValidationError:
                 return None
         return None
+
+
+def _is_transient(exc: Exception) -> bool:
+    """Whether an error is worth trying the same provider again for.
+
+    Server-side capacity and rate limiting; not a malformed request, which will
+    fail identically however many times it is sent.
+    """
+    response = getattr(exc, "response", None)
+    return response is not None and response.status_code in (429, 500, 502, 503, 504)
 
 
 def _gemini_model() -> str:
