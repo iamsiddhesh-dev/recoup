@@ -151,6 +151,84 @@
   </div>
 </section>
 
+{# -- sensitivity -------------------------------------------------------- #}
+{% if sweep %}
+  <section class="card">
+    <div class="card__head">
+      <h2 class="card__title">Does it survive the assumptions being wrong?</h2>
+      <span class="card__note">
+        {{ sweep.points | length }} full re-runs, one assumption moved at a time
+      </span>
+    </div>
+
+    <div class="card__body stack" style="gap: var(--s4)">
+
+      <div class="banner {{ '' if sweep.holds() else 'banner--warn' }}">
+        <div>
+          <div class="banner__title">
+            {% if sweep.holds() %}
+              The agent beats contact-only at every point in the sweep
+            {% else %}
+              The result flips sign somewhere in the sweep
+            {% endif %}
+          </div>
+          <p class="dim" style="margin: var(--s1) 0 0">
+            Baseline judgment gain is
+            <span class="money money--positive">{{ sweep.base.judgment | rupees }}</span>.
+            The worst case across every assumption tested is
+            <span class="money">{{ sweep.worst_case().judgment | rupees }}</span>,
+            when <span class="mono">{{ sweep.worst_case().axis }}</span> is set
+            {{ sweep.worst_case().level }}. The claim being tested is directional —
+            that the policy engine beats an arm which also contacts customers — not
+            that it wins by any particular amount.
+          </p>
+        </div>
+      </div>
+
+      <div class="tornado">
+        {% for band in bands %}
+          <div class="tornado__row">
+            <span class="tornado__label">{{ band.label }}</span>
+            <div class="tornado__track">
+              <div class="tornado__span"
+                   style="left: {{ band.left_pct }}%; width: {{ band.width_pct }}%"></div>
+              <div class="tornado__base" style="left: {{ base_pct }}%"></div>
+            </div>
+            <span class="tornado__value money">{{ band.span | rupees }}</span>
+          </div>
+          <p class="tornado__why">
+            {{ band.why }}
+            <span class="dim">
+              &nbsp;{{ band.low | rupees }} &rarr; {{ band.high | rupees }}
+            </span>
+          </p>
+        {% endfor %}
+      </div>
+
+      <p class="small dim" style="margin: 0">
+        Each bar is the range the judgment gain moves through when that one
+        assumption is taken to either end of a plausible band, with everything
+        else held still. The vertical line is the committed baseline. Only the
+        world moves — the agent's configuration is held fixed throughout, because
+        re-tuning it at each point would answer an easier question than the one
+        being asked.
+      </p>
+
+      {% if inverted %}
+        <p class="small dim" style="margin: 0">
+          <strong class="dim">Worth noticing:</strong>
+          {% for band in inverted %}<span class="mono">{{ band.axis }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+          runs backwards — the gap <em>narrows</em> as the assumption rises. More
+          responsive customers make the simple contact-only arm catch up, so the
+          agent's advantage is largest exactly where recovery is hardest. That is
+          the direction you would want it to point.
+        </p>
+      {% endif %}
+
+    </div>
+  </section>
+{% endif %}
+
 {# -- arms --------------------------------------------------------------- #}
 <section class="card">
   <div class="card__head">

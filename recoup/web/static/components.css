@@ -805,6 +805,87 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Tornado
+
+   Every bar on one shared scale, so their lengths are comparable to each other
+   rather than each filling its own row. The vertical rule is the committed
+   baseline — without it a reader cannot tell which direction is bad.
+   --------------------------------------------------------------------------- */
+
+.tornado {
+  display: flex;
+  flex-direction: column;
+}
+
+.tornado__row {
+  display: grid;
+  grid-template-columns: 210px 1fr 92px;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.tornado__label {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.tornado__track {
+  position: relative;
+  height: 14px;
+  background: var(--raised);
+  border-radius: 3px;
+}
+
+.tornado__span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--accent);
+  border-radius: 3px;
+  min-width: 2px;
+  opacity: 0.85;
+}
+
+.tornado__base {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--text);
+  opacity: 0.55;
+}
+
+.tornado__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tornado__why {
+  margin: 2px 0 var(--s3) 0;
+  padding-left: calc(210px + var(--s3));
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  line-height: 1.5;
+}
+
+@media (max-width: 800px) {
+  .tornado__row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .tornado__track {
+    grid-column: 1 / -1;
+  }
+
+  .tornado__why {
+    padding-left: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Policy Studio
    --------------------------------------------------------------------------- */
 
