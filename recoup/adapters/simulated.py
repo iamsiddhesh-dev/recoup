@@ -22,7 +22,7 @@ from recoup.adapters.base import (
     RecoveryLink,
     supports_silent_retry,
 )
-from recoup.domain import Channel, DowntimeEntity, PaymentEntity, PaymentStatus
+from recoup.domain import Channel, DowntimeEntity, Language, PaymentEntity, PaymentStatus
 from recoup.world.config import WorldConfig
 from recoup.world.customers import Population
 from recoup.world.generator import Batch
@@ -200,6 +200,10 @@ class SimulatedNotifier:
         if customer is None:
             return set()
         return {channel for channel in Channel if customer.may_contact(channel)}
+
+    def preferred_language(self, customer_ref: str) -> Language:
+        customer = self._population.get(customer_ref)
+        return customer.language if customer else Language.ENGLISH
 
     def send(self, request: NudgeRequest) -> NudgeResult:
         if request.idempotency_key in self._seen_keys:
