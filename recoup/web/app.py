@@ -30,6 +30,7 @@ from fastapi.templating import Jinja2Templates
 from recoup.adapters.webhooks import SignatureError, parse
 from recoup.agent.config import ComplianceConfig
 from recoup.eval import run_all
+from recoup.eval.sensitivity import load as load_sweep
 from recoup.eval.store import load_summary, open_ledger
 from recoup.web.jobs import JobRegistry
 from recoup.web.sink import WebhookSink
@@ -248,6 +249,29 @@ def create_app(
             finally:
                 ledger.close()
 
+        sweep = load_sweep()
+        bands, base_pct, inverted = [], 50.0, []
+
+        if sweep is not None:
+            bands = sweep.bands()
+
+            # Position every bar on one shared scale, so the bars are comparable
+            # to each other rather than each filling its own row.
+            values = [b.low for b in bands] + [b.high for b in bands] + [sweep.base.judgment]
+            low, high = min(values), max(values)
+            span = (high - low) or 1
+
+            for band in bands:
+                left = min(band.low, band.high)
+                band.left_pct = round((left - low) / span * 100, 2)
+                band.width_pct = round(band.span / span * 100, 2)
+
+            base_pct = round((sweep.base.judgment - low) / span * 100, 2)
+
+            # Axes where a higher assumption produces a *smaller* gap. Called out
+            # because it reads as an error and is in fact the interesting part.
+            inverted = [b for b in bands if b.high < b.low and b.span > 0]
+
         return templates.TemplateResponse(
             request,
             "experiment.html",
@@ -257,6 +281,10 @@ def create_app(
                 "active": "experiment",
                 "summary": load_summary(data_dir),
                 "experiment": view,
+                "sweep": sweep,
+                "bands": bands,
+                "base_pct": base_pct,
+                "inverted": inverted,
             },
         )
 
