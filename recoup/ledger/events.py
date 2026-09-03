@@ -204,6 +204,30 @@ class Ledger:
             "SELECT DISTINCT arm FROM ledger ORDER BY arm"
         )]
 
+    def counts_by_kind(self, arm: str | None = None) -> dict[str, int]:
+        sql = "SELECT kind, COUNT(*) n FROM ledger"
+        params: list[str] = []
+        if arm is not None:
+            sql += " WHERE arm = ?"
+            params.append(arm)
+        sql += " GROUP BY kind"
+        return {row["kind"]: row["n"] for row in self._conn.execute(sql, params)}
+
+    def append_only_triggers(self) -> list[str]:
+        """The triggers that make this an audit trail rather than a log.
+
+        Read back from the schema rather than asserted, so the audit screen can
+        show that the guarantee is enforced by the storage engine and not merely
+        claimed in a docstring.
+        """
+        return [
+            row["name"]
+            for row in self._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger' "
+                "AND name LIKE 'ledger_no_%' ORDER BY name"
+            )
+        ]
+
     # -- reproducibility -----------------------------------------------------
 
     def digest(self, arm: str | None = None) -> str:
