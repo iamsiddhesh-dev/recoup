@@ -1131,3 +1131,19 @@ input[type="range"]::-moz-range-thumb {
 
   .rail__foot { display: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   Explanation
+
+   The case in prose, above the case in numbers. Set wider and looser than the
+   dense instrument type around it: this is the one block on the screen meant to
+   be read as a sentence rather than scanned as a value.
+   --------------------------------------------------------------------------- */
+
+.explanation {
+  margin: 0;
+  max-width: 68ch;
+  font-size: var(--fs-lg);
+  line-height: 1.6;
+  color: var(--text);
+}
