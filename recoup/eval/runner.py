@@ -216,17 +216,23 @@ class Runner:
         decision = arm.decide(context)
         result.decisions += 1
 
-        if item.task is Task.INGEST:
-            events.append(
-                LedgerEvent(
-                    at=when,
-                    kind=EventKind.DECIDED,
-                    arm=arm.name,
-                    payment_id=payment.id,
-                    customer_id=payment.customer_ref,
-                    data=decision.to_ledger_data(),
-                )
+        # Every decision is recorded, not only the first. An earlier version
+        # logged this on ingest alone to keep the ledger small, and the result was
+        # a case history where the opening move showed its arithmetic and the
+        # three actions after it appeared from nowhere. "Every money action is
+        # explainable" is the whole claim; a cheaper audit trail that only
+        # explains the first one is not a smaller version of that claim, it is a
+        # different and false one.
+        events.append(
+            LedgerEvent(
+                at=when,
+                kind=EventKind.DECIDED,
+                arm=arm.name,
+                payment_id=payment.id,
+                customer_id=payment.customer_ref,
+                data=decision.to_ledger_data(),
             )
+        )
 
         self._record_vetoes(decision, payment, when, arm, events, result)
 
