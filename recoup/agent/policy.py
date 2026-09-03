@@ -98,9 +98,15 @@ class PolicyEngine:
 
         delay_hours = (at - context.now).total_seconds() / 3600
         estimate = context.estimate_at(at)
-        decay = self._decay(delay_hours)
 
-        gross = estimate.probability * context.amount * self._policy.assumed_margin
+        # Rounded *before* the arithmetic, not after it. The case screen presents
+        # this breakdown as a sum a merchant can check line by line, and it can
+        # only survive being checked if the total is computed from the same values
+        # that are displayed. Rounding for presentation after computing on full
+        # precision leaves the shown sum missing its own total by tens of paise.
+        probability = round(estimate.probability, 4)
+        decay = round(self._decay(delay_hours), 3)
+        gross = round(probability * context.amount * self._policy.assumed_margin)
         cost = self._policy.cost_of(
             str(ActionKind.RETRY_NOW), prior_attempts=context.attempts
         )
@@ -110,14 +116,14 @@ class PolicyEngine:
             action=ActionKind.RETRY_NOW if delay_hours < 1 else ActionKind.RETRY_SCHEDULED,
             at=at,
             ev=ev,
-            probability=estimate.probability,
+            probability=probability,
             breakdown={
-                "probability": round(estimate.probability, 4),
+                "probability": probability,
                 "amount": context.amount,
                 "margin": self._policy.assumed_margin,
-                "gross": round(gross),
+                "gross": gross,
                 "delay_hours": round(delay_hours, 2),
-                "decay": round(decay, 3),
+                "decay": decay,
                 "cost": cost,
                 "observations": estimate.observations,
             },
@@ -150,12 +156,18 @@ class PolicyEngine:
         # and exactly what the classifier fallback buys back.
         relevance = nudge.cause_multiplier(context.cause)
 
-        response = (
-            nudge.prior_response * reach * relevance * (nudge.decay_per_prior_contact**prior)
+        # Rounded before the arithmetic, for the same reason as retries: the shown
+        # sum has to reconstruct its own total.
+        response = round(
+            min(
+                1.0,
+                nudge.prior_response * reach * relevance * (nudge.decay_per_prior_contact**prior),
+            ),
+            4,
         )
-        probability = min(1.0, response) * nudge.prior_completion
+        probability = round(response * nudge.prior_completion, 4)
 
-        gross = probability * context.amount * self._policy.assumed_margin
+        gross = round(probability * context.amount * self._policy.assumed_margin)
         cost = self._policy.cost_of(str(action))
         annoyance = self._annoyance(prior)
         ev = int(gross - cost - annoyance)
@@ -168,12 +180,12 @@ class PolicyEngine:
             breakdown={
                 "channel_reach": reach,
                 "cause_relevance": relevance,
-                "response": round(response, 4),
+                "response": response,
                 "completion": nudge.prior_completion,
-                "probability": round(probability, 4),
+                "probability": probability,
                 "amount": context.amount,
                 "margin": self._policy.assumed_margin,
-                "gross": round(gross),
+                "gross": gross,
                 "cost": cost,
                 "annoyance": annoyance,
                 "prior_contacts": prior,
@@ -192,7 +204,7 @@ class PolicyEngine:
         times — defensible arithmetic, operationally nonsense.
         """
         probability = self._policy.escalation_success_rate
-        gross = probability * context.amount * self._policy.assumed_margin
+        gross = round(probability * context.amount * self._policy.assumed_margin)
         direct = self._policy.cost_of(str(ActionKind.ESCALATE_HUMAN))
         scarcity = self._policy.escalation_scarcity_premium
 
@@ -205,7 +217,7 @@ class PolicyEngine:
                 "probability": probability,
                 "amount": context.amount,
                 "margin": self._policy.assumed_margin,
-                "gross": round(gross),
+                "gross": gross,
                 "cost": direct,
                 "scarcity_premium": scarcity,
             },
