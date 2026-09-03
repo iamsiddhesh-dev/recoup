@@ -87,6 +87,10 @@ def _demo(args: argparse.Namespace) -> int:
 
     print(f"generating a run (seed {world.run.seed})…")
     results, ledger = run_all(world, ledger_path=path)
+
+    # Hash each arm's stream before closing, so the audit screen can later prove
+    # the file has not changed since it was written.
+    digests = {m.arm: ledger.digest(m.arm) for m in results}
     ledger.close()
 
     save_summary(
@@ -95,6 +99,7 @@ def _demo(args: argparse.Namespace) -> int:
         horizon_days=world.run.horizon_days,
         batch_size=world.run.batch_size,
         margin=world.merchant_margin,
+        digests=digests,
     )
 
     print()

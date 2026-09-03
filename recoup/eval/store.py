@@ -22,7 +22,7 @@ the entire event stream at boot just to render a headline number.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -44,6 +44,11 @@ class RunSummary:
     batch_size: int
     margin: float
     arms: list[dict]
+
+    # Per-arm hash of the event stream, taken when the run was written. Verifying
+    # against it later is what turns "this is an audit trail" from a claim in a
+    # README into a property the audit screen can check in front of you.
+    digests: dict[str, str] = field(default_factory=dict)
 
     @property
     def at_risk(self) -> int:
@@ -82,6 +87,7 @@ def save_summary(
     batch_size: int,
     margin: float,
     directory: str | Path = DEFAULT_DIR,
+    digests: dict[str, str] | None = None,
 ) -> Path:
     path = Path(directory) / SUMMARY_NAME
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -93,6 +99,7 @@ def save_summary(
         batch_size=batch_size,
         margin=margin,
         arms=[_metrics_to_dict(m) for m in results],
+        digests=digests or {},
     )
 
     path.write_text(json.dumps(asdict(summary), indent=2) + "\n", encoding="utf-8")
