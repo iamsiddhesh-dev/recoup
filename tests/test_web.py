@@ -98,14 +98,37 @@ def test_the_control_room_explains_itself_when_there_is_no_run(client):
     assert "python -m recoup demo" in response.text
 
 
-def test_unbuilt_screens_are_marked_rather_than_linked(client):
-    """A link that 404s reads as broken; a labelled one reads as in progress."""
+def test_built_screens_are_linked_and_unbuilt_ones_are_only_marked(client):
+    """A link that 404s reads as broken; a labelled one reads as in progress.
+
+    Driven from NAV rather than naming a screen, so it keeps testing the
+    mechanism as screens get built. Every entry is built now, which is why the
+    unbuilt half is conditional rather than removed — the next screen added will
+    exercise it again.
+    """
+    from html import escape
+
+    from recoup.web.app import NAV
+
     html = client.get("/").text
 
-    assert 'href="/"' in html
-    assert 'href="/experiment"' not in html  # not built yet
-    assert "Experiment" in html  # but still shown, marked
-    assert "soon" in html
+    for item in NAV:
+        # Jinja autoescapes, so "Audit & Refusals" renders as "Audit &amp; Refusals".
+        assert escape(item["label"]) in html, f"{item['label']} missing from the rail"
+        if item["built"]:
+            assert f'href="{item["href"]}"' in html
+        else:
+            assert f'href="{item["href"]}"' not in html
+            assert "soon" in html
+
+
+def test_every_linked_screen_actually_responds(client):
+    """The guarantee the built flag is making."""
+    from recoup.web.app import NAV
+
+    for item in NAV:
+        if item["built"]:
+            assert client.get(item["href"]).status_code == 200, item["href"]
 
 
 def test_a_correctly_signed_webhook_is_stored(client, sink):
