@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from recoup.agent.classify import Classifier
@@ -53,16 +54,24 @@ def run_all(
     *,
     offline: bool = False,
     use_llm: bool = True,
+    policy: PolicyConfig | None = None,
+    compliance: ComplianceConfig | None = None,
+    on_progress: Callable[[str, float], None] | None = None,
 ) -> tuple[list[ArmMetrics], Ledger]:
     """Run every arm against one shared world and score them.
 
     The world is built once. Every arm sees the same failures in the same order
     with the same underlying luck, which is what makes the difference between them
     attributable to their decisions.
+
+    `policy` and `compliance` can be supplied rather than loaded from disk, which
+    is what Policy Studio does: change a cost or a cap, re-run the real
+    evaluation, compare. The world is untouched, so the comparison stays honest —
+    only the agent's beliefs and rules moved.
     """
     world = world or WorldConfig.load()
-    policy = PolicyConfig.load()
-    compliance = ComplianceConfig.load()
+    policy = policy or PolicyConfig.load()
+    compliance = compliance or ComplianceConfig.load()
 
     batch, population, issuers = build_batch(world)
     ledger = Ledger(ledger_path)
@@ -79,11 +88,21 @@ def run_all(
         ledger=ledger,
     )
 
+    arms = build_arms(policy, compliance, llm)
+
     results: list[ArmMetrics] = []
-    for arm in build_arms(policy, compliance, llm):
-        outcome = runner.run(arm)
+    for index, arm in enumerate(arms):
+
+        def report(fraction: float, index=index, name=arm.name) -> None:
+            if on_progress is not None:
+                on_progress(name, (index + fraction) / len(arms))
+
+        outcome = runner.run(arm, on_progress=report)
         results.append(
             score(ledger, arm.name, outcome.description, world.merchant_margin)
         )
+
+    if on_progress is not None:
+        on_progress("scoring", 1.0)
 
     return results, ledger
