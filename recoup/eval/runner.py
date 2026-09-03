@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 
+from recoup.adapters.base import supports_silent_retry
 from recoup.adapters.simulated import SimulatedAdapter, SimulatedNotifier
 from recoup.agent.classify import Classifier
 from recoup.agent.config import ComplianceConfig, PolicyConfig
@@ -199,7 +200,27 @@ class Runner:
                     payment_id=payment.id,
                     customer_id=payment.customer_ref,
                     amount=payment.amount,
-                    data={"method": str(payment.method), "reason": payment.error_reason},
+                    data={
+                        "method": str(payment.method),
+                        "reason": payment.error_reason,
+                        # Whether standing authorisation exists. Not a secret —
+                        # the agent reads it off the payment entity — but
+                        # recording it makes the pool splittable afterwards,
+                        # which is what separates "recovered more because it
+                        # tried harder" from "recovered more because it could
+                        # reach money the baseline structurally cannot".
+                        "retryable": supports_silent_retry(
+                            payment.method,
+                            {
+                                k: v
+                                for k, v in (
+                                    ("token_id", payment.token_id),
+                                    ("card_id", payment.card_id),
+                                )
+                                if v
+                            },
+                        ),
+                    },
                 )
             )
             events.append(
