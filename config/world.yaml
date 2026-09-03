@@ -27,6 +27,11 @@ run:
   # is comparable to one from this afternoon. Nothing derives from wall-clock.
   start_date: 2026-06-01
 
+  # Whose payments these are. Appears in recovery messages, because a customer
+  # reading "your payment at X did not complete" needs to know which X — a real
+  # deployment would take this from the Razorpay account.
+  merchant_name: Anvaya Retail
+
 # [ASSUMPTION] Relative order volume by hour of day (IST). Indian e-commerce is
 # strongly evening-weighted. This decides which hours original failures land in,
 # which in turn decides how much room the agent has to reschedule them.

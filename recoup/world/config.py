@@ -37,6 +37,7 @@ class RunConfig(BaseModel):
     currency: str = "INR"
     timezone: str = "Asia/Kolkata"
     start_date: date = date(2026, 6, 1)
+    merchant_name: str = "the merchant"
 
     @property
     def start_at(self) -> datetime:

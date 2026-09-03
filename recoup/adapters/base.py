@@ -166,3 +166,12 @@ class Notifier(Protocol):
         can check it without the agent reaching around the adapter seam.
         """
         ...
+
+    def preferred_language(self, customer_ref: str) -> Language:
+        """Which language to write to this customer in.
+
+        Same reasoning as consent: a profile fact the merchant already has, so it
+        comes through the messaging layer rather than being reached for
+        elsewhere.
+        """
+        ...
