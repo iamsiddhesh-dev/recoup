@@ -58,8 +58,11 @@ def sink(tmp_path) -> WebhookSink:
 
 
 @pytest.fixture
-def client(sink) -> TestClient:
-    return TestClient(create_app(sink))
+def client(sink, tmp_path) -> TestClient:
+    # A temp data directory, so these tests never read whatever run happens to be
+    # sitting in ./data. A test whose result depends on a developer's local state
+    # is a test that passes on their machine and fails in CI.
+    return TestClient(create_app(sink, data_dir=tmp_path / "no-run"))
 
 
 def _post(client: TestClient, body: bytes, signature: str | None, event_id: str = "evt_1"):
@@ -71,8 +74,37 @@ def _post(client: TestClient, body: bytes, signature: str | None, event_id: str 
 
 def test_health_reports_how_many_webhooks_have_arrived(client):
     response = client.get("/healthz")
+    body = response.json()
+
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "webhooks_received": 0}
+    assert body["status"] == "ok"
+    assert body["webhooks_received"] == 0
+
+
+def test_health_reports_whether_a_run_is_loaded(client):
+    """The server starts without a run; it says so rather than refusing to boot."""
+    body = client.get("/healthz").json()
+
+    assert body["run_loaded"] is False
+    assert body["seed"] is None
+
+
+def test_the_control_room_explains_itself_when_there_is_no_run(client):
+    """Real copy, never "No data" — an empty screen is when someone most needs telling."""
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "No run to show yet" in response.text
+    assert "python -m recoup demo" in response.text
+
+
+def test_unbuilt_screens_are_marked_rather_than_linked(client):
+    """A link that 404s reads as broken; a labelled one reads as in progress."""
+    html = client.get("/").text
+
+    assert 'href="/"' in html
+    assert 'href="/queue"' not in html
+    assert "soon" in html
 
 
 def test_a_correctly_signed_webhook_is_stored(client, sink):
