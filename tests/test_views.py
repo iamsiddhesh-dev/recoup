@@ -166,6 +166,61 @@ def test_a_decision_shows_its_arithmetic(recovered_case):
     assert any(s.is_money for s in working.steps)
 
 
+def test_the_explanation_is_regenerated_not_stored(recovered_case):
+    """The sentence is derived from the numbers, so it is not kept per row.
+
+    Storing a copy of derivable prose on every decision was ~7% of the ledger.
+    """
+    decided = next(e for e in recovered_case.entries if e.working and e.working.steps)
+
+    assert "reason" not in decided.data
+    assert decided.working.reason
+    assert "₹" in decided.working.reason
+
+
+def test_a_scheduled_retry_names_the_time_it_is_scheduled_for(recovered_case):
+    """The delay and the clock time in the sentence have to agree.
+
+    The first version of the read path passed the decision's own timestamp, so
+    the sentence read "in 6h (Thu 12:05)" with its two halves contradicting each
+    other.
+    """
+    import re
+    from datetime import timedelta
+
+    for entry in recovered_case.entries:
+        working = entry.working
+        if not working or not working.action.startswith("RETRY"):
+            continue
+
+        match = re.search(r"in (\d+)h \((\w{3}) (\d{2}):(\d{2})\)", working.reason)
+        if not match:
+            continue
+
+        # The sentence rounds the delay for display but derives the clock time
+        # from the exact value, so reconstruct from the breakdown rather than
+        # from the rounded number in the prose.
+        delay = entry.data["breakdown"]["delay_hours"]
+        expected = entry.at + timedelta(hours=delay)
+
+        assert f"{expected:%a}" == match.group(2)
+        assert f"{expected:%H}" == match.group(3)
+        assert f"{expected:%M}" == match.group(4)
+        return
+
+    # No scheduled retry in this case; nothing to check.
+
+
+def test_refusals_are_not_duplicated_onto_decisions(recovered_case):
+    """Vetoes are their own events; they were also embedded on every decision.
+
+    That duplication was 68% of the largest payload and 39% of the whole ledger.
+    """
+    for entry in recovered_case.entries:
+        assert "vetoes" not in entry.data
+        assert "at" not in entry.data
+
+
 def test_the_arithmetic_actually_adds_up(recovered_case):
     """The sum on screen has to reconstruct the number beside it.
 
