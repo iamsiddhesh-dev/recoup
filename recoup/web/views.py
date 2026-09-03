@@ -391,6 +391,206 @@ def build_queue(
     return selected[:limit]
 
 
+# ---------------------------------------------------------------------------
+# Audit and refusals
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class RefusalRule:
+    """One compliance rule, and what it stopped."""
+
+    rule: str
+    refusals: int
+    payments: int
+    amount: int
+    why: str
+    actions: list[str] = field(default_factory=list)
+
+    @property
+    def headline(self) -> str:
+        """Rules are keyed for machines. This is for the person reading them."""
+        return HUMAN_RULE_NAMES.get(self.rule, self.rule.replace(":", " · "))
+
+
+@dataclass
+class RefusedPayment:
+    payment_id: str
+    amount: int
+    cause: str | None
+    rules: list[str]
+    outcome: str
+    recovered_paise: int
+
+    @property
+    def abandoned(self) -> bool:
+        return self.outcome != "recovered"
+
+
+@dataclass
+class AuditView:
+    arm: str
+    total_events: int = 0
+    by_kind: dict[str, int] = field(default_factory=dict)
+    digest: str = ""
+    triggers: list[str] = field(default_factory=list)
+    replay_ok: bool = False
+
+    rules: list[RefusalRule] = field(default_factory=list)
+    refused: list[RefusedPayment] = field(default_factory=list)
+
+    # Configured hard stops that never had to fire. Reported rather than hidden:
+    # a rule showing zero looks inactive, and the reason it is zero is the
+    # interesting part.
+    dormant: list[str] = field(default_factory=list)
+
+    refusals: int = 0
+    payments_touched: int = 0
+    abandoned_count: int = 0
+    abandoned_amount: int = 0
+    recovered_anyway_count: int = 0
+    recovered_anyway_amount: int = 0
+
+
+HUMAN_RULE_NAMES = {
+    "attempts:max_per_payment": "Retry cap reached",
+    "attempts:cooling_off": "Instrument in cooling-off",
+    "contact:quiet_hours": "Inside quiet hours",
+    "contact:min_interval": "Too soon after the last message",
+    "contact:max_per_customer": "Weekly contact cap reached",
+    "contact:consent:whatsapp": "No WhatsApp consent",
+    "contact:consent:voice": "No voice consent",
+    "downtime:active": "Issuer outage in progress",
+    "escalation:below_threshold": "Below the human-review threshold",
+    "escalation:run_cap": "Human review capacity spent",
+    "execution:max_actions_per_run": "Run action cap reached",
+    "hard_stop:RISK_BLOCKED": "Blocked by risk — never retried",
+    "hard_stop:MANDATE_PROBLEM": "Mandate revoked or exceeded",
+    "hard_stop:INSTRUMENT_INVALID": "Instrument cannot succeed as-is",
+    "hard_stop:CUSTOMER_INTENT": "Customer cancelled deliberately",
+    "hard_stop:CUSTOMER_INTENT:max_contacts": "Already followed up once",
+}
+
+
+def build_audit(
+    ledger: Ledger,
+    arm: str,
+    recorded_digest: str | None = None,
+    configured_hard_stops: list[str] | None = None,
+) -> AuditView:
+    """The refusal list, and evidence that the trail it comes from is intact.
+
+    Two things on one screen because they answer the same question. "We
+    deliberately did not touch these cases" is only worth reading if the record
+    it is drawn from cannot have been edited, so the integrity of the ledger is
+    shown next to what it says rather than asserted elsewhere.
+    """
+    view = AuditView(arm=arm)
+
+    view.by_kind = ledger.counts_by_kind(arm)
+    view.total_events = sum(view.by_kind.values())
+    view.triggers = ledger.append_only_triggers()
+
+    # Recomputed now, compared against the hash taken when the run was written.
+    # A match means nothing in the stream has changed since — which is the whole
+    # claim an audit trail makes, checked rather than asserted.
+    current = ledger.digest(arm)
+    view.digest = current[:16]
+    view.replay_ok = recorded_digest is not None and current == recorded_digest
+
+    # Rules, and the payments each one stopped.
+    rules: dict[str, RefusalRule] = {}
+    per_payment: dict[str, set[str]] = {}
+    seen_by_rule: dict[str, set[str]] = {}
+    amounts: dict[str, int] = {}
+    outcomes: dict[str, str] = {}
+    recovered: dict[str, int] = {}
+    causes: dict[str, str | None] = {}
+
+    for event in ledger.events(arm=arm):
+        pid = event.payment_id
+
+        match event.kind:
+            case EventKind.OBSERVED if pid:
+                amounts[pid] = event.amount or 0
+                outcomes.setdefault(pid, "open")
+
+            case EventKind.CLASSIFIED if pid:
+                causes[pid] = event.data.get("cause")
+
+            case EventKind.VETOED if pid:
+                rule = event.data.get("rule", "unknown")
+                entry = rules.get(rule)
+                if entry is None:
+                    entry = RefusalRule(
+                        rule=rule,
+                        refusals=0,
+                        payments=0,
+                        amount=0,
+                        why=event.data.get("why", ""),
+                    )
+                    rules[rule] = entry
+                    seen_by_rule[rule] = set()
+
+                entry.refusals += 1
+                action = event.data.get("action", "")
+                if action and action not in entry.actions:
+                    entry.actions.append(action)
+
+                if pid not in seen_by_rule[rule]:
+                    seen_by_rule[rule].add(pid)
+                    entry.payments += 1
+                    entry.amount += event.amount or 0
+
+                per_payment.setdefault(pid, set()).add(rule)
+
+            case EventKind.RECOVERED if pid:
+                recovered[pid] = recovered.get(pid, 0) + (event.amount or 0)
+                outcomes[pid] = "recovered"
+
+            case EventKind.STOPPED if pid:
+                if outcomes.get(pid) != "recovered":
+                    outcomes[pid] = "stopped"
+
+    view.rules = sorted(rules.values(), key=lambda r: -r.amount)
+    view.refusals = sum(r.refusals for r in view.rules)
+    view.payments_touched = len(per_payment)
+
+    for pid, applied in per_payment.items():
+        row = RefusedPayment(
+            payment_id=pid,
+            amount=amounts.get(pid, 0),
+            cause=causes.get(pid),
+            rules=sorted(applied),
+            outcome=outcomes.get(pid, "open"),
+            recovered_paise=recovered.get(pid, 0),
+        )
+        view.refused.append(row)
+
+        if row.abandoned:
+            view.abandoned_count += 1
+            view.abandoned_amount += row.amount
+        else:
+            view.recovered_anyway_count += 1
+            view.recovered_anyway_amount += row.recovered_paise
+
+    # Largest first — the refusals worth arguing about are the expensive ones.
+    view.refused.sort(key=lambda r: -r.amount)
+
+    # A hard stop with zero refusals has not failed; it was never reached,
+    # because the policy declined to propose the action on economic grounds
+    # before compliance had to refuse it on principle. Both layers doing their
+    # job looks, from the gate's side, like one layer doing nothing.
+    fired = set(rules)
+    view.dormant = sorted(
+        f"hard_stop:{name}"
+        for name in (configured_hard_stops or [])
+        if not any(rule.startswith(f"hard_stop:{name}") for rule in fired)
+    )
+
+    return view
+
+
 def queue_facets(ledger: Ledger, arm: str) -> dict[str, list[str]]:
     """The filter values actually present, so the UI never offers an empty one."""
     causes: set[str] = set()
