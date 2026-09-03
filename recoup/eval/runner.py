@@ -13,6 +13,7 @@ never occurred.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -44,6 +45,9 @@ class Task(StrEnum):
 # bound it in practice, but a bug in those caps should not turn into an unbounded
 # loop, so the runner enforces its own ceiling and reports when it bites.
 MAX_DECISIONS_PER_PAYMENT = 12
+
+# Called with the fraction of the horizon simulated so far, 0.0 to 1.0.
+ProgressHook = Callable[[float], None]
 
 
 @dataclass
@@ -87,7 +91,15 @@ class Runner:
         self._ledger = ledger
         self._classifier = classifier or Classifier()
 
-    def run(self, arm: Arm) -> RunResult:
+    def run(self, arm: Arm, on_progress: ProgressHook | None = None) -> RunResult:
+        """Drive one arm through the horizon.
+
+        `on_progress` is called with a fraction of *simulated time* elapsed, which
+        is a genuinely good progress signal and free to compute: the run is
+        literally walking a clock from the start of the horizon to its end, so how
+        far that clock has moved is how far the run has got. Counting events would
+        need a total nobody knows in advance, because decisions create more work.
+        """
         arm.reset()
 
         # A fresh adapter and notifier per arm: attempt counters and contact
@@ -115,7 +127,19 @@ class Runner:
 
         self._seed_timeline(timeline, horizon)
 
+        start = self._world.run.start_at
+        span = max((horizon - start).total_seconds(), 1.0)
+        reported = 0.0
+
         for when, item in timeline.run(until=horizon):
+            if on_progress is not None:
+                fraction = (when - start).total_seconds() / span
+                # Only on movement worth redrawing for. A callback per event
+                # would dominate the runtime of the thing it is measuring.
+                if fraction - reported >= 0.01:
+                    reported = fraction
+                    on_progress(min(1.0, fraction))
+
             match item.task:
                 case Task.DOWNTIME_STARTED | Task.DOWNTIME_RESOLVED:
                     context_builder.note_downtime(str(item.payload[0]), item.payload[1])
