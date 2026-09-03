@@ -34,6 +34,7 @@ from pathlib import Path
 from recoup.agent.config import PolicyConfig
 from recoup.eval import run_all
 from recoup.eval.metrics import ArmMetrics
+from recoup.money import rupees
 from recoup.world.config import WorldConfig
 
 BASELINE = "naive_baseline"
@@ -381,16 +382,16 @@ def table(result: SweepResult, metric: str = "judgment") -> str:
         bar = "█" * max(1, round(band.span / widest * 18))
         lines.append(
             f"{band.label:<34}"
-            f"{band.low / 100:>11,.0f}"
-            f"{band.high / 100:>12,.0f}"
-            f"{band.span / 100:>12,.0f}  {bar}"
+            f"{rupees(band.low, symbol=False):>11}"
+            f"{rupees(band.high, symbol=False):>12}"
+            f"{rupees(band.span, symbol=False):>12}  {bar}"
         )
 
     worst = result.worst_case(metric)
     lines += [
         "-" * 70,
-        f"baseline {metric}: ₹{base / 100:,.0f}",
-        f"worst case:        ₹{getattr(worst, metric) / 100:,.0f} "
+        f"baseline {metric}: {rupees(base)}",
+        f"worst case:        {rupees(getattr(worst, metric))} "
         f"({worst.axis} {worst.level})",
         f"claim holds everywhere: {'yes' if result.holds(metric) else 'NO'}",
     ]

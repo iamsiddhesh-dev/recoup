@@ -32,6 +32,7 @@ from recoup.agent.config import ComplianceConfig
 from recoup.eval import run_all
 from recoup.eval.sensitivity import load as load_sweep
 from recoup.eval.store import load_summary, open_ledger
+from recoup.money import rupees
 from recoup.web.jobs import JobRegistry
 from recoup.web.sink import WebhookSink
 from recoup.web.studio import KNOBS
@@ -75,16 +76,11 @@ CONTACT = "contact_only"
 def _rupees(paise) -> str:
     """Money is displayed in rupees and stored in paise, always.
 
-    Small amounts keep two decimals. A WhatsApp message costs 35 paise, and
+    Amounts under ₹100 keep two decimals: a WhatsApp message costs 35 paise, and
     rounding it to "₹0" makes the expected-value sum look like it does not add
-    up — the one thing that screen exists to demonstrate. Large amounts drop the
-    decimals, because ₹12,041.00 is noise in a column of them.
+    up — the one thing that screen exists to demonstrate.
     """
-    if paise is None:
-        return "—"
-    if 0 < abs(paise) < 10_000:
-        return f"₹{paise / 100:,.2f}"
-    return f"₹{paise / 100:,.0f}"
+    return rupees(paise, precise_below=10_000)
 
 
 def _pct(value) -> str:

@@ -28,6 +28,7 @@ from recoup.agent.actions import ActionKind, Candidate, Veto
 from recoup.agent.config import ComplianceConfig
 from recoup.agent.context import DecisionContext
 from recoup.domain import FailureCause
+from recoup.money import rupees
 
 
 class ComplianceGate:
@@ -206,8 +207,8 @@ class ComplianceGate:
                 rule="escalation:below_threshold",
                 action=candidate.action,
                 why=(
-                    f"₹{context.amount / 100:,.0f} is below the ₹"
-                    f"{rules.human_review_above_paise / 100:,.0f} human-review threshold"
+                    f"{rupees(context.amount)} is below the "
+                    f"{rupees(rules.human_review_above_paise)} human-review threshold"
                 ),
             )
 

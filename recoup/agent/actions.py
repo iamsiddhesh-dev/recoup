@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 
 from recoup.domain import Channel
+from recoup.money import rupees
 
 
 class ActionKind(StrEnum):
@@ -89,7 +90,8 @@ def explain(
     scheduled time directly, and the read path had only the decision time, so the
     sentence read "in 6h (Thu 12:05)" with the two halves disagreeing.
     """
-    rupees = breakdown.get("amount", 0) / 100
+    amount = rupees(breakdown.get("amount", 0))
+    worth = rupees(ev)
     subject = cause or "an unclassified failure"
     delay = breakdown.get("delay_hours", 0.0)
 
@@ -97,23 +99,23 @@ def explain(
         scheduled = at + timedelta(hours=delay)
         when = "now" if delay < 1 else f"in {delay:.0f}h ({scheduled:%a %H:%M})"
         return (
-            f"Retry {when}: {subject} on ₹{rupees:,.0f} has an estimated "
-            f"{probability:.0%} chance of clearing, worth ₹{ev / 100:,.0f} net."
+            f"Retry {when}: {subject} on {amount} has an estimated "
+            f"{probability:.0%} chance of clearing, worth {worth} net."
         )
 
     if action.is_contact:
         return (
             f"Contact by {action.channel}: {subject} needs the customer to act on "
-            f"₹{rupees:,.0f}, estimated {probability:.0%} to recover, worth "
-            f"₹{ev / 100:,.0f} net after "
+            f"{amount}, estimated {probability:.0%} to recover, worth "
+            f"{worth} net after "
             f"{breakdown.get('prior_contacts', 0)} prior contacts."
         )
 
     if action is ActionKind.ESCALATE_HUMAN:
         return (
-            f"Escalate: ₹{rupees:,.0f} is large enough that human review at "
-            f"₹{breakdown.get('cost', 0) / 100:,.0f}, resolving an estimated "
-            f"{probability:.0%}, still nets ₹{ev / 100:,.0f}."
+            f"Escalate: {amount} is large enough that human review at "
+            f"{rupees(breakdown.get('cost', 0))}, resolving an estimated "
+            f"{probability:.0%}, still nets {worth}."
         )
 
     return "Stop."

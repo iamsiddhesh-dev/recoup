@@ -177,7 +177,7 @@ def test_the_report_shows_what_it_expected():
 def test_money_is_shown_as_money_and_seeds_are_not():
     text = report(compare(_run(), _run()))
 
-    assert "₹541,724" in text
+    assert "₹5,41,724" in text
     assert "20260902" in text
     assert "20,260,902" not in text, "a seed is an identifier, not a quantity"
 
