@@ -695,6 +695,116 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Experiment
+
+   A split bar showing the shape of the pool, and a decomposition of the lift.
+   The proportions are the argument, so the widths are driven by the real
+   amounts rather than chosen to look balanced.
+   --------------------------------------------------------------------------- */
+
+.split {
+  display: flex;
+  gap: 2px;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.split__part {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s3);
+  min-width: 0;
+}
+
+.split__part--accent {
+  background: var(--accent-wash);
+  border-left: 2px solid var(--accent);
+}
+
+.split__part--muted {
+  background: var(--raised);
+  border-left: 2px solid var(--border-strong);
+}
+
+.split__label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.split__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.split__detail {
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
+.decomp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.decomp__row {
+  display: grid;
+  grid-template-columns: 92px 1fr auto 56px;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.decomp__label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.decomp__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.decomp__share {
+  font-family: var(--font-mono);
+  text-align: right;
+  color: var(--muted);
+}
+
+.decomp__note {
+  margin: 0 0 var(--s3) 0;
+  padding-left: calc(92px + var(--s3));
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  line-height: 1.5;
+}
+
+@media (max-width: 700px) {
+  .split {
+    flex-direction: column;
+  }
+
+  .decomp__row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .decomp__row .bar {
+    grid-column: 1 / -1;
+  }
+
+  .decomp__note {
+    padding-left: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Policy Studio
    --------------------------------------------------------------------------- */
 

@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Experiment · Recoup{% endblock %}
+{% block heading %}Experiment{% endblock %}
+
+{% block content %}
+
+{% if not experiment or not experiment.observed %}
+  <div class="card">
+    <div class="empty">
+      <div class="empty__title">No run to compare yet</div>
+      <p>Generate one and the arms appear here, with the headline number taken
+         apart.</p>
+      <code class="empty__hint">python -m recoup demo</code>
+    </div>
+  </div>
+{% else %}
+
+{# -- the pool ----------------------------------------------------------- #}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">The pool every arm was given</h2>
+    <span class="card__note">
+      {{ experiment.observed | int_comma }} failures &middot; {{ experiment.at_risk | rupees }}
+    </span>
+  </div>
+  <div class="card__body stack">
+    <div class="split">
+      <div class="split__part split__part--accent"
+           style="flex: {{ experiment.retryable_amount }}">
+        <span class="split__label">Retryable</span>
+        <span class="split__value">{{ experiment.retryable_amount | rupees }}</span>
+        <span class="split__detail">
+          {{ experiment.retryable_count | int_comma }} payments with standing authorisation
+        </span>
+      </div>
+      <div class="split__part split__part--muted"
+           style="flex: {{ experiment.customer_amount }}">
+        <span class="split__label">Needs the customer</span>
+        <span class="split__value">{{ experiment.customer_amount | rupees }}</span>
+        <span class="split__detail">
+          {{ experiment.customer_count | int_comma }} payments no retry can touch
+        </span>
+      </div>
+    </div>
+
+    <p class="small dim" style="margin: 0">
+      Razorpay cannot re-run a failed payment. A charge with the customer absent is
+      only possible where standing authorisation exists — an e-mandate or a saved
+      token. Everything else has to go back to the customer, and that split is what
+      the next section is about.
+    </p>
+  </div>
+</section>
+
+{# -- the decomposition -------------------------------------------------- #}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">Where the lift actually comes from</h2>
+    <span class="card__note">the headline, taken apart</span>
+  </div>
+  <div class="card__body stack" style="gap: var(--s4)">
+
+    <div class="decomp">
+      <div class="decomp__row">
+        <span class="decomp__label">Coverage</span>
+        <div class="bar">
+          <div class="bar__fill bar__fill--refused"
+               style="width: {{ (experiment.coverage_share * 100) | round(1) }}%"></div>
+        </div>
+        <span class="decomp__value money">{{ experiment.coverage_gain | rupees }}</span>
+        <span class="decomp__share num">{{ experiment.coverage_share | pct }}</span>
+      </div>
+      <p class="decomp__note">
+        What <span class="mono">{{ experiment.contact }}</span> earns over
+        <span class="mono">{{ experiment.baseline }}</span> simply by contacting
+        customers at all. Any arm that messages people gets this. It is not
+        cleverness.
+      </p>
+
+      <div class="decomp__row">
+        <span class="decomp__label">Judgment</span>
+        <div class="bar">
+          <div class="bar__fill"
+               style="width: {{ (experiment.judgment_share * 100) | round(1) }}%"></div>
+        </div>
+        <span class="decomp__value money">{{ experiment.judgment_gain | rupees }}</span>
+        <span class="decomp__share num">{{ experiment.judgment_share | pct }}</span>
+      </div>
+      <p class="decomp__note">
+        What <span class="mono">{{ experiment.agent }}</span> earns on top, by
+        choosing which action, which channel and which hour — and by declining to
+        act when nothing is worth it. This is the half that is about the policy
+        engine.
+      </p>
+    </div>
+
+    <div class="banner">
+      <div>
+        <div class="banner__title">Lead with the second number, not the first</div>
+        <p class="dim" style="margin: var(--s1) 0 0">
+          Total lift over naive retry is
+          <span class="money money--positive">{{ experiment.total_gain | rupees }}</span>,
+          and <strong>{{ experiment.coverage_share | pct }} of it is coverage</strong> —
+          money the baseline structurally cannot reach because it only retries.
+          Quoting the total as evidence of a smart agent would be the most
+          misleading thing this project could do with an honest number.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+{# -- ablation ----------------------------------------------------------- #}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">What the model added</h2>
+    <span class="card__note">measured, not assumed</span>
+  </div>
+  <div class="card__body">
+    <div class="facts">
+      <div class="fact">
+        <span class="label">With the LLM fallback</span>
+        <span class="fact__value">
+          {{ (experiment.arm(experiment.agent).recovered_paise if experiment.arm(experiment.agent) else 0) | rupees }}
+        </span>
+      </div>
+      <div class="fact">
+        <span class="label">Deterministic rules only</span>
+        <span class="fact__value">
+          {{ (experiment.arm(experiment.ablation).recovered_paise if experiment.arm(experiment.ablation) else 0) | rupees }}
+        </span>
+      </div>
+      <div class="fact">
+        <span class="label">Difference</span>
+        <span class="fact__value {{ 'money--positive' if experiment.llm_gain > 0 else 'money--muted' }}">
+          {{ experiment.llm_gain | rupees }}
+        </span>
+      </div>
+    </div>
+
+    <p class="small dim" style="margin: var(--s4) 0 0">
+      The classifier is correct — it resolved every unmapped symptom type in this
+      run, checked against ground truth it cannot see. It is simply not worth much
+      <em>here</em>, because the failures it resolves are overwhelmingly bank and
+      wallet outages, where the right action is to leave them alone, and that is
+      close to what the pessimistic default already did. Reported as measured
+      rather than tuned until it looked useful.
+    </p>
+  </div>
+</section>
+
+{# -- arms --------------------------------------------------------------- #}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">Where each arm found its money</h2>
+  </div>
+  <div class="card__body card__body--flush table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Arm</th>
+          <th class="money">Recovered</th>
+          <th class="num">Payments</th>
+          <th class="money">From retryable</th>
+          <th class="money">From customer action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for arm in experiment.arms %}
+          <tr data-highlight="{{ 'true' if arm.arm == experiment.agent else 'false' }}">
+            <td class="mono">{{ arm.arm }}</td>
+            <td class="money">{{ arm.recovered_paise | rupees }}</td>
+            <td class="num">{{ arm.recovered_count | int_comma }}</td>
+            <td class="money">{{ arm.from_retryable | rupees }}</td>
+            <td class="money">{{ arm.from_customer | rupees }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{# -- by cause ----------------------------------------------------------- #}
+{% set agent_arm = experiment.arm(experiment.agent) %}
+{% if agent_arm and agent_arm.by_cause %}
+  <section class="card">
+    <div class="card__head">
+      <h2 class="card__title">What the agent recovered, by cause</h2>
+      <span class="card__note mono">{{ experiment.agent }}</span>
+    </div>
+    <div class="card__body stack">
+      {% set top = agent_arm.by_cause | dictsort(by='value', reverse=true) %}
+      {% set biggest = top[0][1] %}
+      {% for cause, amount in top %}
+        <div class="stack" style="gap: var(--s1)">
+          <div class="row">
+            <span>{{ cause }}</span>
+            <span class="topbar__spacer"></span>
+            <span class="money num">{{ amount | rupees }}</span>
+          </div>
+          <div class="bar">
+            <div class="bar__fill" style="width: {{ (amount / biggest * 100) | round(1) }}%"></div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+{% endif %}
+{% endblock %}

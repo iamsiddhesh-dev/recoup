@@ -37,7 +37,13 @@ from recoup.web.studio import KNOBS
 from recoup.web.studio import apply as studio_apply
 from recoup.web.studio import clean as studio_clean
 from recoup.web.studio import defaults as studio_defaults
-from recoup.web.views import build_audit, build_case, build_queue, queue_facets
+from recoup.web.views import (
+    build_audit,
+    build_case,
+    build_experiment,
+    build_queue,
+    queue_facets,
+)
 
 EVENT_ID_HEADER = "x-razorpay-event-id"
 
@@ -56,7 +62,7 @@ NAV = [
         "label": "Experiment",
         "href": "/experiment",
         "icon": "⇄",
-        "built": False,
+        "built": True,
     },
 ]
 
@@ -228,6 +234,29 @@ def create_app(
                 "active": "queue",
                 "summary": load_summary(data_dir),
                 "case": case,
+            },
+        )
+
+    @app.get("/experiment")
+    async def experiment(request: Request):
+        ledger = open_ledger(data_dir)
+
+        view = None
+        if ledger is not None:
+            try:
+                view = build_experiment(ledger)
+            finally:
+                ledger.close()
+
+        return templates.TemplateResponse(
+            request,
+            "experiment.html",
+            {
+                "request": request,
+                "nav": NAV,
+                "active": "experiment",
+                "summary": load_summary(data_dir),
+                "experiment": view,
             },
         )
 
