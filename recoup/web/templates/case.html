@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}{{ case.payment_id }} · Recoup{% endblock %}
+{% block heading %}Case detail{% endblock %}
+
+{% block topbar_extra %}
+  <a class="button" href="/queue?arm={{ case.arm }}">← Queue</a>
+{% endblock %}
+
+{% block content %}
+
+{# -- what this payment is ------------------------------------------------ #}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title mono">{{ case.payment_id }}</h2>
+    {% if case.outcome == "recovered" %}
+      <span class="tag tag--recovered">recovered</span>
+    {% elif case.outcome == "stopped" %}
+      <span class="tag tag--refused">stopped</span>
+    {% else %}
+      <span class="tag tag--risk">open</span>
+    {% endif %}
+    <span class="card__note mono">{{ case.arm }}</span>
+  </div>
+
+  <div class="card__body">
+    <div class="facts">
+      <div class="fact">
+        <span class="label">Amount</span>
+        <span class="fact__value">{{ case.amount | rupees }}</span>
+      </div>
+      <div class="fact">
+        <span class="label">Method</span>
+        <span class="fact__value">{{ case.method }}</span>
+      </div>
+      <div class="fact">
+        <span class="label">Reported reason</span>
+        <span class="fact__value" style="font-size: var(--fs-base)">{{ case.reason }}</span>
+      </div>
+      <div class="fact">
+        <span class="label">Cause</span>
+        <span class="fact__value" style="font-size: var(--fs-base)">
+          {% if case.cause %}
+            {{ case.cause }}
+            <span class="dim small">{{ case.confidence | pct }}</span>
+          {% else %}
+            <span class="dim">unclassified</span>
+          {% endif %}
+        </span>
+      </div>
+      <div class="fact">
+        <span class="label">Customer</span>
+        <span class="fact__value" style="font-size: var(--fs-base)">
+          {{ case.customer_id or "—" }}
+        </span>
+      </div>
+      <div class="fact">
+        <span class="label">Spent</span>
+        <span class="fact__value">{{ case.cost_paise | rupees }}</span>
+      </div>
+      <div class="fact">
+        <span class="label">Recovered</span>
+        <span class="fact__value {{ 'money--positive' if case.recovered_paise else 'money--muted' }}">
+          {{ case.recovered_paise | rupees }}
+        </span>
+      </div>
+    </div>
+
+    {% if case.rule %}
+      <p class="small dim" style="margin: var(--s4) 0 0">
+        Classified by <span class="mono">{{ case.rule }}</span>
+        ({{ case.resolution }}).
+        {% if case.resolution == "fallback" %}
+          The deterministic rules had no mapping for these symptoms, so this came
+          from the model fallback — capped in confidence so it can never outrank a
+          documented rule.
+        {% endif %}
+      </p>
+    {% endif %}
+  </div>
+</section>
+
+{# -- the story ----------------------------------------------------------- #}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">What happened, and why</h2>
+    <span class="card__note">
+      {{ case.entries | length }} events
+      {%- if case.veto_count %} · {{ case.veto_count }} refused{% endif %}
+    </span>
+  </div>
+
+  <div class="card__body">
+    <div class="timeline">
+      {% for entry in case.entries %}
+        <div class="tl">
+          <div class="tl__time">{{ entry.at.strftime("%d %b %H:%M") }}</div>
+          <div class="tl__node tl__node--{{ entry.tone }}" aria-hidden="true">●</div>
+          <div class="tl__body">
+            <div class="tl__title">{{ entry.title }}</div>
+            {% if entry.detail %}
+              <div class="tl__detail">{{ entry.detail }}</div>
+            {% endif %}
+
+            {% if entry.working and entry.working.steps %}
+              {# The arithmetic, shown as a sum a reader can check line by line. #}
+              <div class="working">
+                <div class="working__head">
+                  <span class="working__action">{{ entry.working.action }}</span>
+                  <span class="dim small">expected value</span>
+                  <span class="working__ev">{{ entry.working.ev | rupees }}</span>
+                </div>
+
+                <table class="sum">
+                  <tbody>
+                    {% for step in entry.working.steps %}
+                      <tr>
+                        <td class="sum__op">{{ step.operator }}</td>
+                        <td class="sum__label">{{ step.label }}</td>
+                        <td class="sum__value">
+                          {% if step.is_money %}
+                            {{ step.value | rupees }}
+                          {% elif step.key in ("probability", "response", "completion", "margin") %}
+                            {{ step.value | pct }}
+                          {% else %}
+                            {{ "%.3f" | format(step.value) }}
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                    <tr class="sum__total">
+                      <td class="sum__op">=</td>
+                      <td class="sum__label">expected value</td>
+                      <td class="sum__value">{{ entry.working.ev | rupees }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {% if entry.working.alternatives %}
+                  <div class="alternatives">
+                    <span class="dim">also considered</span>
+                    {% for alt in entry.working.alternatives %}
+                      <span class="alternatives__item">
+                        {{ alt.action }}
+                        <span class="alternatives__ev">{{ alt.ev | rupees }}</span>
+                      </span>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% endblock %}

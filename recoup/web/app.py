@@ -22,14 +22,15 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Header, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from recoup.adapters.webhooks import SignatureError, parse
-from recoup.eval.store import load_summary
+from recoup.eval.store import load_summary, open_ledger
 from recoup.web.sink import WebhookSink
+from recoup.web.views import build_case, build_queue, queue_facets
 
 EVENT_ID_HEADER = "x-razorpay-event-id"
 
@@ -40,8 +41,7 @@ STATIC = Path(__file__).parent / "static"
 # is not ready — the first looks broken, the second looks in progress.
 NAV = [
     {"key": "control", "label": "Control Room", "href": "/", "icon": "◉", "built": True},
-    {"key": "queue", "label": "Recovery Queue", "href": "/queue", "icon": "≡", "built": False},
-    {"key": "case", "label": "Case Detail", "href": "/case", "icon": "⊙", "built": False},
+    {"key": "queue", "label": "Recovery Queue", "href": "/queue", "icon": "≡", "built": True},
     {"key": "studio", "label": "Policy Studio", "href": "/studio", "icon": "⚙", "built": False},
     {"key": "audit", "label": "Audit & Refusals", "href": "/audit", "icon": "⊘", "built": False},
     {
@@ -61,11 +61,15 @@ CONTACT = "contact_only"
 def _rupees(paise) -> str:
     """Money is displayed in rupees and stored in paise, always.
 
-    Formatting lives here rather than in templates so a figure shown to a
-    merchant is rendered one way everywhere.
+    Small amounts keep two decimals. A WhatsApp message costs 35 paise, and
+    rounding it to "₹0" makes the expected-value sum look like it does not add
+    up — the one thing that screen exists to demonstrate. Large amounts drop the
+    decimals, because ₹12,041.00 is noise in a column of them.
     """
     if paise is None:
         return "—"
+    if 0 < abs(paise) < 10_000:
+        return f"₹{paise / 100:,.2f}"
     return f"₹{paise / 100:,.0f}"
 
 
@@ -141,6 +145,67 @@ def create_app(sink: WebhookSink | None = None, data_dir: str | Path = "data") -
             }
 
         return templates.TemplateResponse(request, "control_room.html", context)
+
+    @app.get("/queue")
+    async def queue(
+        request: Request,
+        arm: str = AGENT,
+        outcome: str | None = None,
+        cause: str | None = None,
+    ):
+        summary = load_summary(data_dir)
+        ledger = open_ledger(data_dir)
+
+        context: dict = {
+            "request": request,
+            "nav": NAV,
+            "active": "queue",
+            "summary": summary,
+            "arm": arm,
+            "outcome": outcome,
+            "cause": cause,
+            "rows": [],
+            "arms": [],
+            "facets": {"causes": [], "outcomes": []},
+        }
+
+        if ledger is not None:
+            try:
+                context |= {
+                    "rows": build_queue(ledger, arm, outcome or None, cause or None),
+                    "arms": ledger.arms(),
+                    "facets": queue_facets(ledger, arm),
+                }
+            finally:
+                ledger.close()
+
+        return templates.TemplateResponse(request, "queue.html", context)
+
+    @app.get("/case/{payment_id}")
+    async def case_detail(request: Request, payment_id: str, arm: str = AGENT):
+        ledger = open_ledger(data_dir)
+        if ledger is None:
+            raise HTTPException(404, "No run has been generated yet")
+
+        try:
+            case = build_case(ledger, payment_id, arm)
+        finally:
+            ledger.close()
+
+        if case is None:
+            raise HTTPException(404, f"No events for {payment_id} in arm {arm}")
+
+        return templates.TemplateResponse(
+            request,
+            "case.html",
+            {
+                "request": request,
+                "nav": NAV,
+                "active": "queue",
+                "summary": load_summary(data_dir),
+                "case": case,
+            },
+        )
 
     # ------------------------------------------------------------------ health
 

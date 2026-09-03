@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Recovery Queue · Recoup{% endblock %}
+{% block heading %}Recovery Queue{% endblock %}
+
+{% block content %}
+
+{% if not summary %}
+  <div class="card">
+    <div class="empty">
+      <div class="empty__title">No run to show yet</div>
+      <p>Generate one and every failure in it appears here.</p>
+      <code class="empty__hint">python -m recoup demo</code>
+    </div>
+  </div>
+{% else %}
+
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">Failures</h2>
+    <span class="card__note">
+      {{ rows | length }} shown, largest first
+    </span>
+  </div>
+
+  <div class="card__body">
+    <form class="filters" method="get">
+      <label class="label" for="arm">Arm</label>
+      <select id="arm" name="arm" onchange="this.form.submit()">
+        {% for a in arms %}
+          <option value="{{ a }}" {{ 'selected' if a == arm }}>{{ a }}</option>
+        {% endfor %}
+      </select>
+
+      <label class="label" for="outcome">Outcome</label>
+      <select id="outcome" name="outcome" onchange="this.form.submit()">
+        <option value="">any</option>
+        {% for o in facets.outcomes %}
+          <option value="{{ o }}" {{ 'selected' if o == outcome }}>{{ o }}</option>
+        {% endfor %}
+      </select>
+
+      <label class="label" for="cause">Cause</label>
+      <select id="cause" name="cause" onchange="this.form.submit()">
+        <option value="">any</option>
+        {% for c in facets.causes %}
+          <option value="{{ c }}" {{ 'selected' if c == cause }}>{{ c }}</option>
+        {% endfor %}
+      </select>
+
+      {% if outcome or cause %}
+        <a class="button" href="/queue?arm={{ arm }}">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="card__body card__body--flush table-scroll">
+    {% if rows %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Payment</th>
+            <th class="money">Amount</th>
+            <th>Method</th>
+            <th>Cause</th>
+            <th>Outcome</th>
+            <th class="num">Actions</th>
+            <th class="num">Contacts</th>
+            <th class="money">Cost</th>
+            <th class="money">Recovered</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr class="link-row"
+                onclick="location.href='/case/{{ row.payment_id }}?arm={{ arm }}'">
+              <td>
+                <a href="/case/{{ row.payment_id }}?arm={{ arm }}">{{ row.payment_id }}</a>
+              </td>
+              <td class="money">{{ row.amount | rupees }}</td>
+              <td class="small dim">{{ row.method }}</td>
+              <td class="small">
+                {% if row.cause %}{{ row.cause }}{% else %}<span class="dim">unclassified</span>{% endif %}
+              </td>
+              <td>
+                {% if row.outcome == "recovered" %}
+                  <span class="tag tag--recovered">recovered</span>
+                {% elif row.outcome == "stopped" %}
+                  <span class="tag tag--refused">stopped</span>
+                {% else %}
+                  <span class="tag tag--risk">open</span>
+                {% endif %}
+              </td>
+              <td class="num">{{ row.actions }}</td>
+              <td class="num">{{ row.contacts }}</td>
+              <td class="money money--muted">{{ row.cost_paise | rupees }}</td>
+              <td class="money {{ 'money--positive' if row.recovered_paise else 'money--muted' }}">
+                {{ row.recovered_paise | rupees }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">
+        <div class="empty__title">Nothing matches those filters</div>
+        <p>No failure in this run has that combination of outcome and cause.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+{% endif %}
+{% endblock %}
