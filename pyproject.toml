@@ -40,6 +40,9 @@ addopts = "-q"
 # collect any imported class named Test* — including the TestModeViolation
 # exception — and warns that it cannot.
 python_classes = ["*Tests"]
+markers = [
+    "slow: runs a real evaluation. Deselect with -m 'not slow'.",
+]
 
 [tool.ruff]
 line-length = 100
