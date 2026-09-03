@@ -1,0 +1,202 @@
+/* ===========================================================================
+   Recoup — design tokens
+   ===========================================================================
+   A control room, not a dashboard. The reference points are trading terminals
+   and network operations consoles: dense, instrument-like, dark by default,
+   with money set in a face you can align in columns.
+
+   Written by hand rather than assembled from a utility framework. A framework's
+   defaults produce the same admin template everyone else ships, and the whole
+   point of this screen is that a Razorpay engineer looks at it and sees a
+   product rather than a homework submission.
+
+   Neutrals carry a deliberate blue-green bias toward the accent. A pure grey
+   reads as unconsidered; these read as chosen.
+   =========================================================================== */
+
+:root {
+  /* -- surfaces ---------------------------------------------------------- */
+  --ground: #0e1117;
+  --surface: #161b24;
+  --raised: #1d242f;
+  --border: #2a3341;
+  --border-strong: #3a4657;
+
+  /* -- text -------------------------------------------------------------- */
+  --text: #e6ebf2;
+  --muted: #8a97a8;
+  --faint: #5d6879;
+
+  /* -- semantic ---------------------------------------------------------- */
+  --accent: #22c7a9;          /* recovered money, primary action */
+  --accent-dim: #17705f;
+  --warn: #f2a93b;            /* at risk, degraded */
+  --critical: #e5484d;        /* lost, hard failure */
+
+  /* A refusal is a *correct* outcome, not an error. Desaturated on purpose so
+     the refusal list does not read as a wall of alarms. */
+  --refused: #7c8ba1;
+
+  --accent-wash: rgba(34, 199, 169, 0.10);
+  --warn-wash: rgba(242, 169, 59, 0.10);
+  --critical-wash: rgba(229, 72, 77, 0.10);
+  --refused-wash: rgba(124, 139, 161, 0.10);
+
+  /* -- type -------------------------------------------------------------- */
+  --font-display: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 15px;
+  --fs-lg: 19px;
+  --fs-xl: 26px;
+  --fs-2xl: 34px;
+
+  /* -- space ------------------------------------------------------------- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+
+  /* -- structure --------------------------------------------------------- */
+  --rail-width: 220px;
+  --topbar-height: 56px;
+  --radius: 6px;
+  --radius-sm: 4px;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lifted: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------------------------------------------------------------------------
+   Light theme.
+   Not an inversion. Surfaces lighten and the accent darkens to hold contrast
+   against them — the dark accent would fail against white, and a naive invert
+   is how a light mode ends up unreadable.
+   --------------------------------------------------------------------------- */
+:root[data-theme="light"] {
+  --ground: #f4f6f8;
+  --surface: #ffffff;
+  --raised: #eef1f5;
+  --border: #dde3ea;
+  --border-strong: #c3cdd9;
+
+  --text: #131922;
+  --muted: #5b6878;
+  --faint: #8d99a8;
+
+  --accent: #0f8a74;
+  --accent-dim: #a6e5d8;
+  --warn: #b8720c;
+  --critical: #c0272c;
+  --refused: #6b7789;
+
+  --accent-wash: rgba(15, 138, 116, 0.08);
+  --warn-wash: rgba(184, 114, 12, 0.08);
+  --critical-wash: rgba(192, 39, 44, 0.08);
+  --refused-wash: rgba(107, 119, 137, 0.08);
+
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-lifted: 0 8px 24px rgba(16, 24, 40, 0.10);
+}
+
+/* ---------------------------------------------------------------------------
+   Reset and base
+   --------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin: 0;
+  text-wrap: balance;
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Every interactive element gets a visible focus ring. A control room is
+   operated, sometimes entirely from the keyboard. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Numerals
+
+   Money is the subject of this product, so it gets a face of its own. Tabular
+   figures are not a stylistic choice: without them, digits have different
+   widths, columns of rupee amounts fail to align, and a table of numbers
+   becomes noticeably harder to scan.
+   --------------------------------------------------------------------------- */
+
+.mono,
+.money,
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.money {
+  letter-spacing: -0.02em;
+}
+
+.money--positive { color: var(--accent); }
+.money--negative { color: var(--critical); }
+.money--muted    { color: var(--muted); }
+
+/* Uppercase labels need letter-spacing or they read as shouting. */
+.label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
