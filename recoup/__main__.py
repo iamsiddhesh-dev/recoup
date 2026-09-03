@@ -65,6 +65,46 @@ def _eval(args: argparse.Namespace) -> int:
     return 0
 
 
+def _demo(args: argparse.Namespace) -> int:
+    """Generate a run, persist it, then serve the control room from it.
+
+    Deliberately two phases. The evaluation takes ~35 seconds and a page load
+    cannot, so the run is written to disk once and every screen reads it back.
+    """
+    from recoup.eval import run_all
+    from recoup.eval.metrics import table
+    from recoup.eval.store import ledger_path, save_summary
+    from recoup.web.app import serve
+    from recoup.world.config import WorldConfig
+
+    world = WorldConfig.load()
+    if args.seed is not None:
+        world.run.seed = args.seed
+
+    path = ledger_path("data")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.unlink(missing_ok=True)
+
+    print(f"generating a run (seed {world.run.seed})…")
+    results, ledger = run_all(world, ledger_path=path)
+    ledger.close()
+
+    save_summary(
+        results,
+        seed=world.run.seed,
+        horizon_days=world.run.horizon_days,
+        batch_size=world.run.batch_size,
+        margin=world.merchant_margin,
+    )
+
+    print()
+    print(table(results, "naive_baseline"))
+    print()
+
+    serve(host=args.host, port=args.port)
+    return 0
+
+
 def _serve(args: argparse.Namespace) -> int:
     from recoup.web.app import serve
 
@@ -116,6 +156,7 @@ HANDLERS: dict[str, Callable[[argparse.Namespace], int]] = {
 HANDLERS["serve"] = _serve
 HANDLERS["probe"] = _probe
 HANDLERS["eval"] = _eval
+HANDLERS["demo"] = _demo
 
 
 def build_parser() -> argparse.ArgumentParser:
