@@ -226,3 +226,36 @@ fallback's value scales with how *mixed* the unresolved population is. Here it i
 "abandoned, chase them" and "outage, leave them alone" would punish a single
 default badly, and that is the workload where classification earns its cost. The
 sensitivity sweep can vary that share directly.
+
+---
+
+## A sensitivity axis that measured nothing, and reported it as a finding
+
+**Found by:** reading the first tornado and noticing one bar was exactly zero.
+
+The sweep moves each load-bearing assumption to either end of a plausible band and
+re-runs the whole evaluation. Contribution margin came back with a swing of
+**exactly ₹0** — identical results at 0.7× and 1.3×.
+
+Zero is a suspicious number. A real insensitivity would wobble.
+
+The axis scaled `world.merchant_margin`. The agent prices every decision on
+`policy.assumed_margin`, which is a different field — its *belief* about margin,
+not the truth. So the axis changed what the scoreboard multiplied by at the end
+and nothing the agent could see, and the decisions were byte-identical by
+construction.
+
+Left alone this would have appeared in the writeup as "the result is completely
+insensitive to margin", which is a strong and entirely false claim. It is exactly
+the kind of error a sensitivity analysis is supposed to catch, arriving inside the
+sensitivity analysis.
+
+**Fixed:** axes now receive the policy as well as the world, and the margin axis
+moves both — a merchant whose margin genuinely differs would know it. The swing is
+₹18,255, and margin sits fifth of seven rather than last. A test now asserts every
+axis actually mutates something, so an inert axis fails the build instead of
+producing a confident zero.
+
+**The general shape.** A measurement that reports "no effect" deserves more
+scrutiny than one reporting a large effect, not less. A large effect is usually
+real; no effect is often the instrument being disconnected.
