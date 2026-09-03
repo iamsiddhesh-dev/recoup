@@ -1,0 +1,154 @@
+{
+  "base": {
+    "axis": "base",
+    "level": "base",
+    "factor": 1.0,
+    "recovered": 54196291,
+    "incremental": 39502943,
+    "judgment": 12760138,
+    "contacts": 927,
+    "at_risk": 300285621
+  },
+  "points": [
+    {
+      "axis": "failure_rate",
+      "level": "low",
+      "factor": 0.7,
+      "recovered": 35470834,
+      "incremental": 23621865,
+      "judgment": 7763183,
+      "contacts": 707,
+      "at_risk": 205684539
+    },
+    {
+      "axis": "failure_rate",
+      "level": "high",
+      "factor": 1.3,
+      "recovered": 65010872,
+      "incremental": 44240922,
+      "judgment": 17481766,
+      "contacts": 1151,
+      "at_risk": 337693345
+    },
+    {
+      "axis": "saved_instruments",
+      "level": "low",
+      "factor": 0.5,
+      "recovered": 44515483,
+      "incremental": 38405437,
+      "judgment": 4304503,
+      "contacts": 946,
+      "at_risk": 300285621
+    },
+    {
+      "axis": "saved_instruments",
+      "level": "high",
+      "factor": 1.5,
+      "recovered": 60423228,
+      "incremental": 37293217,
+      "judgment": 18061221,
+      "contacts": 882,
+      "at_risk": 300285621
+    },
+    {
+      "axis": "recovery_probability",
+      "level": "low",
+      "factor": 0.7,
+      "recovered": 49937382,
+      "incremental": 40378368,
+      "judgment": 8501229,
+      "contacts": 953,
+      "at_risk": 300285621
+    },
+    {
+      "axis": "recovery_probability",
+      "level": "high",
+      "factor": 1.3,
+      "recovered": 58845443,
+      "incremental": 40150169,
+      "judgment": 17409290,
+      "contacts": 899,
+      "at_risk": 300285621
+    },
+    {
+      "axis": "nudge_response",
+      "level": "low",
+      "factor": 0.7,
+      "recovered": 46150990,
+      "incremental": 31457642,
+      "judgment": 12603514,
+      "contacts": 931,
+      "at_risk": 300285621
+    },
+    {
+      "axis": "nudge_response",
+      "level": "high",
+      "factor": 1.3,
+      "recovered": 61355386,
+      "incremental": 46662038,
+      "judgment": 9128196,
+      "contacts": 921,
+      "at_risk": 300285621
+    },
+    {
+      "axis": "annoyance",
+      "level": "low",
+      "factor": 0.5,
+      "recovered": 54759050,
+      "incremental": 40065702,
+      "judgment": 12465838,
+      "contacts": 927,
+      "at_risk": 300285621
+    },
+    {
+      "axis": "annoyance",
+      "level": "high",
+      "factor": 2.0,
+      "recovered": 54254395,
+      "incremental": 39561047,
+      "judgment": 12989286,
+      "contacts": 927,
+      "at_risk": 300285621
+    },
+    {
+      "axis": "downtime",
+      "level": "low",
+      "factor": 0.3,
+      "recovered": 47741831,
+      "incremental": 29906113,
+      "judgment": 12939731,
+      "contacts": 919,
+      "at_risk": 280385870
+    },
+    {
+      "axis": "downtime",
+      "level": "high",
+      "factor": 3.0,
+      "recovered": 60782323,
+      "incremental": 46193172,
+      "judgment": 12303949,
+      "contacts": 949,
+      "at_risk": 284777231
+    },
+    {
+      "axis": "margin",
+      "level": "low",
+      "factor": 0.7,
+      "recovered": 55467017,
+      "incremental": 40773669,
+      "judgment": 10552642,
+      "contacts": 842,
+      "at_risk": 300285621
+    },
+    {
+      "axis": "margin",
+      "level": "high",
+      "factor": 1.3,
+      "recovered": 53567483,
+      "incremental": 38874135,
+      "judgment": 12378145,
+      "contacts": 959,
+      "at_risk": 300285621
+    }
+  ]
+}
