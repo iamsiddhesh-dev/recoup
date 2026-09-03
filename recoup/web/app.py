@@ -28,6 +28,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from recoup.adapters.webhooks import SignatureError, parse
+from recoup.agent.config import ComplianceConfig
 from recoup.eval import run_all
 from recoup.eval.store import load_summary, open_ledger
 from recoup.web.jobs import JobRegistry
@@ -36,7 +37,7 @@ from recoup.web.studio import KNOBS
 from recoup.web.studio import apply as studio_apply
 from recoup.web.studio import clean as studio_clean
 from recoup.web.studio import defaults as studio_defaults
-from recoup.web.views import build_case, build_queue, queue_facets
+from recoup.web.views import build_audit, build_case, build_queue, queue_facets
 
 EVENT_ID_HEADER = "x-razorpay-event-id"
 
@@ -49,7 +50,7 @@ NAV = [
     {"key": "control", "label": "Control Room", "href": "/", "icon": "◉", "built": True},
     {"key": "queue", "label": "Recovery Queue", "href": "/queue", "icon": "≡", "built": True},
     {"key": "studio", "label": "Policy Studio", "href": "/studio", "icon": "⚙", "built": True},
-    {"key": "audit", "label": "Audit & Refusals", "href": "/audit", "icon": "⊘", "built": False},
+    {"key": "audit", "label": "Audit & Refusals", "href": "/audit", "icon": "⊘", "built": True},
     {
         "key": "experiment",
         "label": "Experiment",
@@ -87,6 +88,10 @@ def _pct_signed(value) -> str:
     return "—" if value is None else f"{value:+.1%}"
 
 
+def _int_comma(value) -> str:
+    return "—" if value is None else f"{int(value):,}"
+
+
 def create_app(
     sink: WebhookSink | None = None,
     data_dir: str | Path = "data",
@@ -118,6 +123,7 @@ def create_app(
     templates.env.filters["rupees"] = _rupees
     templates.env.filters["pct"] = _pct
     templates.env.filters["pct_signed"] = _pct_signed
+    templates.env.filters["int_comma"] = _int_comma
 
     # ------------------------------------------------------------------ screens
 
@@ -222,6 +228,35 @@ def create_app(
                 "active": "queue",
                 "summary": load_summary(data_dir),
                 "case": case,
+            },
+        )
+
+    @app.get("/audit")
+    async def audit(request: Request, arm: str = AGENT):
+        summary = load_summary(data_dir)
+        ledger = open_ledger(data_dir)
+
+        view = None
+        if ledger is not None:
+            try:
+                view = build_audit(
+                    ledger,
+                    arm,
+                    (summary.digests if summary else {}).get(arm),
+                    configured_hard_stops=list(ComplianceConfig.load().hard_stops),
+                )
+            finally:
+                ledger.close()
+
+        return templates.TemplateResponse(
+            request,
+            "audit.html",
+            {
+                "request": request,
+                "nav": NAV,
+                "active": "audit",
+                "summary": summary,
+                "audit": view,
             },
         )
 
