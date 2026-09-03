@@ -13,10 +13,12 @@ assembles.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
 from recoup.agent.actions import ActionKind, explain
+from recoup.agent.llm.explainer import CaseFacts
 from recoup.ledger.events import EventKind, Ledger, LedgerEvent
 
 # How each event kind presents. Tone drives colour; a veto is `refused` rather
@@ -302,6 +304,51 @@ def build_case(ledger: Ledger, payment_id: str, arm: str) -> CaseView | None:
     return case
 
 
+def case_facts(case: CaseView) -> CaseFacts:
+    """A case, reduced to what an explanation may be built from.
+
+    The explainer never sees the ledger or a `CaseView`; it takes this and returns
+    prose. That keeps the narrative layer unable to reach anything it was not
+    explicitly handed, which is also what makes "the model may only use numbers it
+    was given" a checkable statement rather than an aspiration.
+    """
+    actions: list[str] = []
+    channels: list[str] = []
+    vetoes: list[str] = []
+    decisions: list[str] = []
+
+    for entry in case.entries:
+        if entry.kind is EventKind.EXECUTED:
+            action = entry.data.get("action", "")
+            if action:
+                actions.append(action)
+            if entry.data.get("delivered") and action.startswith("NUDGE_"):
+                channels.append(action.removeprefix("NUDGE_").lower())
+        elif entry.kind is EventKind.VETOED:
+            rule = entry.data.get("rule")
+            if rule:
+                vetoes.append(rule)
+        elif entry.kind is EventKind.DECIDED and entry.working:
+            decisions.append(entry.working.reason)
+
+    return CaseFacts(
+        payment_id=case.payment_id,
+        amount_paise=case.amount,
+        method=case.method,
+        reason=case.reason,
+        outcome=case.outcome,
+        cause=case.cause,
+        recovered_paise=case.recovered_paise,
+        cost_paise=case.cost_paise,
+        attempts=case.attempts,
+        contacts=case.contacts,
+        actions=actions,
+        channels=channels,
+        vetoes=vetoes,
+        decisions=decisions,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Queue
 # ---------------------------------------------------------------------------
@@ -390,6 +437,49 @@ def build_queue(
     # ordered by payment id is a queue nobody reads twice.
     selected.sort(key=lambda r: -r.amount)
     return selected[:limit]
+
+
+# The shapes worth explaining. Each is a different way a payment can end, so the
+# selection spans the range of outcomes rather than the flattering end of it.
+EXPLAINABLE_SHAPES: list[tuple[str, Callable[[QueueRow], bool]]] = [
+    ("recovered without contacting anyone", lambda r: r.outcome == "recovered" and not r.contacts),
+    ("recovered after contact", lambda r: r.outcome == "recovered" and r.contacts > 0),
+    ("chased and still lost", lambda r: r.outcome != "recovered" and r.contacts > 0),
+    ("never actioned at all", lambda r: r.actions == 0),
+    ("cause never determined", lambda r: r.cause is None),
+]
+
+
+def explainable_cases(ledger: Ledger, arm: str, per_shape: int = 1) -> list[str]:
+    """Which payments get a generated explanation, chosen by rule rather than by eye.
+
+    Picking cases by hand would make this a highlight reel — the ones that read
+    well would get the prose and the awkward ones would not. So the selection is
+    the largest payment of each distinct *shape*: recovered without contact,
+    recovered after contact, chased and lost, never touched, never diagnosed. Two
+    of those five are cases where the agent achieved nothing, and they are in the
+    list on purpose.
+
+    Largest first within a shape, matching the queue's own order, so a judge
+    scanning from the top meets an explained case early.
+    """
+    rows = build_queue(ledger, arm, limit=100_000)
+
+    chosen: list[str] = []
+    seen: set[str] = set()
+
+    for _, matches in EXPLAINABLE_SHAPES:
+        taken = 0
+        for row in rows:
+            if taken >= per_shape:
+                break
+            if row.payment_id in seen or not matches(row):
+                continue
+            chosen.append(row.payment_id)
+            seen.add(row.payment_id)
+            taken += 1
+
+    return chosen
 
 
 # ---------------------------------------------------------------------------
