@@ -103,7 +103,8 @@ def test_unbuilt_screens_are_marked_rather_than_linked(client):
     html = client.get("/").text
 
     assert 'href="/"' in html
-    assert 'href="/queue"' not in html
+    assert 'href="/studio"' not in html  # not built yet
+    assert "Policy Studio" in html  # but still shown, marked
     assert "soon" in html
 
 
