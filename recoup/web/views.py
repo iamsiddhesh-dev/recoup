@@ -230,7 +230,8 @@ def _describe(event: LedgerEvent) -> tuple[str, str]:
             delivered = "delivered" if data.get("delivered") else "not delivered"
             acted = ", customer acted" if data.get("acted_on") else ""
             link = ", with payment link" if data.get("with_link") else ""
-            return f"Executed {action}", f"{delivered}{link}{acted}"
+            language = f" · {data['language']}" if data.get("language") else ""
+            return f"Executed {action}", f"{delivered}{link}{acted}{language}"
 
         case EventKind.RECOVERED:
             return "Recovered", f"via {data.get('via', '')}"

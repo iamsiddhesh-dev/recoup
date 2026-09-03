@@ -102,6 +102,23 @@
               <div class="tl__detail">{{ entry.detail }}</div>
             {% endif %}
 
+            {% if entry.data.body %}
+              {# What the customer actually received. For most payments here the
+                 message *is* the recovery attempt, so showing it beats
+                 describing it. #}
+              <div class="message">
+                <div class="message__head">
+                  <span class="message__channel">{{ entry.data.action | replace("NUDGE_", "") | lower }}</span>
+                  <span class="dim">{{ entry.data.language }}</span>
+                  <span class="topbar__spacer"></span>
+                  <span class="tag {{ 'tag--recovered' if entry.data.copy_source == 'generated' else 'tag--neutral' }}">
+                    {{ entry.data.copy_source }}
+                  </span>
+                </div>
+                <p class="message__body">{{ entry.data.body }}</p>
+              </div>
+            {% endif %}
+
             {% if entry.working and entry.working.steps %}
               {# The arithmetic, shown as a sum a reader can check line by line. #}
               <div class="working">
