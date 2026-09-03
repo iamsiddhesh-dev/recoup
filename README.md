@@ -206,13 +206,25 @@ Six screens, server-rendered, hand-authored design system, no build step.
 make setup      # install
 make eval       # the arms table — ~35s, no API key needed
 make demo       # run a batch, then serve the control room at :8000
+make reproduce  # check every number in this README against a fresh run
 make sweep      # re-run the evaluation at 14 perturbed assumptions (~20 min)
 make test       # the wall, every compliance rule, the EV math
+make clean      # remove generated state
 ```
+
+**`make reproduce` is the one to run if you believe none of the above.** It re-runs the
+evaluation from the committed seed and compares 37 recorded figures — every headline in
+this README, plus a SHA-256 digest of each arm's complete event stream — against
+[`reports/claims.json`](reports/claims.json). It exits non-zero on any difference. A
+matching digest means every decision was identical in the same order, which is a stronger
+statement than matching totals: two runs can recover the same amount having done different
+things.
 
 `data/` is generated and gitignored, so run `make demo` once before browsing the UI.
 `reports/` is committed, because a twenty-minute sweep should be readable without being
-re-run.
+re-run — and `make clean` leaves both it and `cache/llm/` alone unless you pass `--reports`
+or `--llm-cache`, since rebuilding those costs twenty minutes and a day of API quota
+respectively.
 
 Everything is deterministic given a seed. `--seed N` on any command; the seed is displayed
 in the top bar of every screen.
