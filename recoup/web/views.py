@@ -591,6 +591,152 @@ def build_audit(
     return view
 
 
+# ---------------------------------------------------------------------------
+# Experiment
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ArmBreakdown:
+    arm: str
+    recovered_paise: int = 0
+    recovered_count: int = 0
+    from_retryable: int = 0
+    from_customer: int = 0
+    by_cause: dict[str, int] = field(default_factory=dict)
+    by_action: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
+class ExperimentView:
+    """The headline number, decomposed until it stops flattering itself."""
+
+    at_risk: int = 0
+    observed: int = 0
+
+    retryable_amount: int = 0
+    retryable_count: int = 0
+    customer_amount: int = 0
+    customer_count: int = 0
+
+    arms: list[ArmBreakdown] = field(default_factory=list)
+
+    baseline: str = ""
+    contact: str = ""
+    agent: str = ""
+    ablation: str = ""
+
+    coverage_gain: int = 0
+    judgment_gain: int = 0
+    total_gain: int = 0
+    llm_gain: int = 0
+    llm_contacts_delta: int = 0
+
+    def arm(self, name: str) -> ArmBreakdown | None:
+        return next((a for a in self.arms if a.arm == name), None)
+
+    @property
+    def coverage_share(self) -> float:
+        return self.coverage_gain / self.total_gain if self.total_gain else 0.0
+
+    @property
+    def judgment_share(self) -> float:
+        return self.judgment_gain / self.total_gain if self.total_gain else 0.0
+
+
+def build_experiment(
+    ledger: Ledger,
+    baseline: str = "naive_baseline",
+    contact: str = "contact_only",
+    agent: str = "recoup_agent",
+    ablation: str = "recoup_agent_no_llm",
+) -> ExperimentView:
+    """Split the pool, then split the lift.
+
+    The headline "+296% over naive retry" is true and mostly uninteresting: the
+    baseline only retries, and three quarters of the money sits behind failures no
+    retry can touch, so most of the gap is money it structurally cannot reach.
+    Reporting that as though it were the agent being clever would be the single
+    most misleading thing this project could do with an honest number.
+
+    So the lift is decomposed into the part any arm that contacts customers would
+    get, and the part that comes from choosing better — which is the only half
+    that is about judgment.
+    """
+    view = ExperimentView(baseline=baseline, contact=contact, agent=agent, ablation=ablation)
+
+    retryable: dict[str, bool] = {}
+    amounts: dict[str, int] = {}
+    causes: dict[str, str | None] = {}
+    breakdowns: dict[str, ArmBreakdown] = {}
+    counted_pool = False
+
+    for event in ledger.events():
+        pid = event.payment_id
+        if pid is None:
+            continue
+
+        breakdown = breakdowns.setdefault(event.arm, ArmBreakdown(arm=event.arm))
+
+        match event.kind:
+            case EventKind.OBSERVED:
+                # The pool is identical in every arm, so it is measured once.
+                if event.arm == baseline:
+                    counted_pool = True
+                    view.observed += 1
+                    view.at_risk += event.amount or 0
+                    if event.data.get("retryable"):
+                        view.retryable_count += 1
+                        view.retryable_amount += event.amount or 0
+                    else:
+                        view.customer_count += 1
+                        view.customer_amount += event.amount or 0
+
+                retryable[f"{event.arm}:{pid}"] = bool(event.data.get("retryable"))
+                amounts[f"{event.arm}:{pid}"] = event.amount or 0
+
+            case EventKind.CLASSIFIED:
+                causes[f"{event.arm}:{pid}"] = event.data.get("cause")
+
+            case EventKind.RECOVERED:
+                amount = event.amount or 0
+                breakdown.recovered_paise += amount
+                breakdown.recovered_count += 1
+
+                key = f"{event.arm}:{pid}"
+                if retryable.get(key):
+                    breakdown.from_retryable += amount
+                else:
+                    breakdown.from_customer += amount
+
+                cause = causes.get(key) or "unclassified"
+                breakdown.by_cause[cause] = breakdown.by_cause.get(cause, 0) + amount
+
+                via = event.data.get("via", "unknown")
+                breakdown.by_action[via] = breakdown.by_action.get(via, 0) + amount
+
+    if not counted_pool:
+        return view
+
+    view.arms = [breakdowns[name] for name in ledger.arms() if name in breakdowns]
+
+    base = breakdowns.get(baseline)
+    reach = breakdowns.get(contact)
+    smart = breakdowns.get(agent)
+    plain = breakdowns.get(ablation)
+
+    if base and smart:
+        view.total_gain = smart.recovered_paise - base.recovered_paise
+    if base and reach:
+        view.coverage_gain = reach.recovered_paise - base.recovered_paise
+    if reach and smart:
+        view.judgment_gain = smart.recovered_paise - reach.recovered_paise
+    if plain and smart:
+        view.llm_gain = smart.recovered_paise - plain.recovered_paise
+
+    return view
+
+
 def queue_facets(ledger: Ledger, arm: str) -> dict[str, list[str]]:
     """The filter values actually present, so the UI never offers an empty one."""
     causes: set[str] = set()
