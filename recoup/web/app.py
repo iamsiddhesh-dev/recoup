@@ -28,8 +28,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from recoup.adapters.webhooks import SignatureError, parse
+from recoup.eval import run_all
 from recoup.eval.store import load_summary, open_ledger
+from recoup.web.jobs import JobRegistry
 from recoup.web.sink import WebhookSink
+from recoup.web.studio import KNOBS
+from recoup.web.studio import apply as studio_apply
+from recoup.web.studio import clean as studio_clean
+from recoup.web.studio import defaults as studio_defaults
 from recoup.web.views import build_case, build_queue, queue_facets
 
 EVENT_ID_HEADER = "x-razorpay-event-id"
@@ -42,7 +48,7 @@ STATIC = Path(__file__).parent / "static"
 NAV = [
     {"key": "control", "label": "Control Room", "href": "/", "icon": "◉", "built": True},
     {"key": "queue", "label": "Recovery Queue", "href": "/queue", "icon": "≡", "built": True},
-    {"key": "studio", "label": "Policy Studio", "href": "/studio", "icon": "⚙", "built": False},
+    {"key": "studio", "label": "Policy Studio", "href": "/studio", "icon": "⚙", "built": True},
     {"key": "audit", "label": "Audit & Refusals", "href": "/audit", "icon": "⊘", "built": False},
     {
         "key": "experiment",
@@ -81,8 +87,20 @@ def _pct_signed(value) -> str:
     return "—" if value is None else f"{value:+.1%}"
 
 
-def create_app(sink: WebhookSink | None = None, data_dir: str | Path = "data") -> FastAPI:
+def create_app(
+    sink: WebhookSink | None = None,
+    data_dir: str | Path = "data",
+    evaluate=run_all,
+) -> FastAPI:
+    """Build the app.
+
+    `evaluate` is injectable so tests can exercise the studio's job plumbing —
+    progress, completion, failure handling — without running a real twelve-second
+    evaluation for each one. The seam is small and it is the difference between
+    those paths being tested and being hoped about.
+    """
     resolved = sink or WebhookSink()
+    jobs = JobRegistry(Path(data_dir) / "studio")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -206,6 +224,77 @@ def create_app(sink: WebhookSink | None = None, data_dir: str | Path = "data") -
                 "case": case,
             },
         )
+
+    # ------------------------------------------------------------------ studio
+
+    @app.get("/studio")
+    async def studio_page(request: Request):
+        summary = load_summary(data_dir)
+        job = jobs.latest()
+
+        return templates.TemplateResponse(
+            request,
+            "studio.html",
+            {
+                "request": request,
+                "nav": NAV,
+                "active": "studio",
+                "summary": summary,
+                "knobs": KNOBS,
+                "values": (job.overrides if job else None) or studio_defaults(),
+                "job": job.to_dict() if job else None,
+                "baseline_arms": summary.arms if summary else [],
+            },
+        )
+
+    @app.post("/studio/run")
+    async def studio_run(request: Request) -> JSONResponse:
+        """Start a real evaluation with the submitted configuration.
+
+        A full run, not an approximation. Studio's whole value is that the number
+        it produces is the same kind of number the control room shows — a
+        cheaper estimate would be a different quantity wearing the same label.
+        """
+        # JSON rather than a form: multipart parsing needs an extra dependency
+        # for a payload that is seven numbers, and the values arrive typed.
+        overrides = studio_clean(await request.json())
+
+        def work(job) -> None:
+            policy, compliance = studio_apply(overrides)
+
+            def progress(stage: str, fraction: float) -> None:
+                job.stage = stage
+                job.progress = fraction
+
+            results, ledger = evaluate(
+                ledger_path=job.ledger_path,
+                policy=policy,
+                compliance=compliance,
+                on_progress=progress,
+            )
+            ledger.close()
+            job.results = [
+                {
+                    "arm": m.arm,
+                    "recovered_paise": m.recovered_paise,
+                    "cost_paise": m.cost_paise,
+                    "net_paise": m.net_paise,
+                    "contacts": m.contacts,
+                    "vetoes": m.vetoes,
+                    "recovered_count": m.recovered_count,
+                }
+                for m in results
+            ]
+
+        job = jobs.submit(overrides, work)
+        return JSONResponse({"job": job.id})
+
+    @app.get("/studio/status/{job_id}")
+    async def studio_status(job_id: str) -> JSONResponse:
+        job = jobs.get(job_id)
+        if job is None:
+            raise HTTPException(404, "No such run")
+        return JSONResponse(job.to_dict())
 
     # ------------------------------------------------------------------ health
 

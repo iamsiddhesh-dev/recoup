@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}Policy Studio · Recoup{% endblock %}
+{% block heading %}Policy Studio{% endblock %}
+
+{% block content %}
+
+<div class="banner">
+  <div>
+    <div class="banner__title">This runs the real evaluation</div>
+    <p class="dim" style="margin: var(--s1) 0 0">
+      Changing a setting re-simulates the same month against the same failures and
+      the same random draws — only the agent's costs and caps move. It takes about
+      thirty seconds, because it is doing the work rather than estimating it.
+      The world is deliberately not adjustable: if you could change how often
+      payments fail, you could produce any number you liked.
+    </p>
+  </div>
+</div>
+
+<div class="grid-studio">
+
+  {# -- the knobs --------------------------------------------------------- #}
+  <section class="card">
+    <div class="card__head">
+      <h2 class="card__title">Configuration</h2>
+      <button class="button" type="button" id="reset">Reset</button>
+    </div>
+
+    <div class="card__body">
+      <form id="studio-form" class="stack" style="gap: var(--s4)">
+        {% for knob in knobs %}
+          <div class="knob">
+            <div class="knob__head">
+              <label class="knob__label" for="{{ knob.key }}">{{ knob.label }}</label>
+              <output class="knob__value" id="out-{{ knob.key }}"></output>
+            </div>
+            <input
+              type="range"
+              id="{{ knob.key }}"
+              name="{{ knob.key }}"
+              min="{{ knob.minimum }}"
+              max="{{ knob.maximum }}"
+              step="{{ knob.step }}"
+              value="{{ values[knob.key] }}"
+              data-unit="{{ knob.unit }}"
+              data-default="{{ values[knob.key] }}">
+            <p class="knob__help">{{ knob.help }}</p>
+          </div>
+        {% endfor %}
+
+        <button class="button button--primary" type="submit" id="run">
+          Run evaluation
+        </button>
+      </form>
+    </div>
+  </section>
+
+  {# -- the result -------------------------------------------------------- #}
+  <section class="card">
+    <div class="card__head">
+      <h2 class="card__title">Result</h2>
+      <span class="card__note" id="status">
+        {% if job %}{{ job.status }}{% else %}not run yet{% endif %}
+      </span>
+    </div>
+
+    <div class="card__body">
+      <div class="progress" id="progress-wrap" hidden>
+        <div class="progress__bar"><div class="progress__fill" id="progress-fill"></div></div>
+        <div class="progress__label" id="progress-label"></div>
+      </div>
+
+      <div id="result-empty" class="empty">
+        <div class="empty__title">Nothing run in this session yet</div>
+        <p>Move a setting and run it. The table will compare the result against
+           the committed run, arm for arm.</p>
+      </div>
+
+      <div class="table-scroll" id="result-table" hidden>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Arm</th>
+              <th class="money">Recovered</th>
+              <th class="money">Δ vs committed</th>
+              <th class="money">Cost</th>
+              <th class="money">Net</th>
+              <th class="num">Contacts</th>
+              <th class="num">Refusals</th>
+            </tr>
+          </thead>
+          <tbody id="result-body"></tbody>
+        </table>
+      </div>
+
+      <p class="small dim" id="failed" hidden></p>
+    </div>
+  </section>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const BASELINE = {{ baseline_arms | tojson }};
+  const form = document.getElementById("studio-form");
+  const runButton = document.getElementById("run");
+  const statusEl = document.getElementById("status");
+  const progressWrap = document.getElementById("progress-wrap");
+  const progressFill = document.getElementById("progress-fill");
+  const progressLabel = document.getElementById("progress-label");
+  const resultTable = document.getElementById("result-table");
+  const resultBody = document.getElementById("result-body");
+  const resultEmpty = document.getElementById("result-empty");
+  const failedEl = document.getElementById("failed");
+
+  // Matches the server's formatting: sub-hundred amounts keep both decimals, so
+  // ₹1.20 does not render as ₹1.2 and a cost of 35 paise stays visible.
+  const rupees = paise => {
+    const sign = paise < 0 ? "−" : "";
+    const abs = Math.abs(paise) / 100;
+    const opts = abs < 100
+      ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+      : { maximumFractionDigits: 0 };
+    return sign + "₹" + abs.toLocaleString("en-IN", opts);
+  };
+
+  // Live label beside each slider, so a value is legible before you run anything.
+  const paint = input => {
+    const out = document.getElementById("out-" + input.id);
+    const value = Number(input.value);
+    out.textContent = input.dataset.unit === "₹" ? rupees(value) : value;
+    out.classList.toggle("knob__value--moved", value !== Number(input.dataset.default));
+  };
+
+  form.querySelectorAll('input[type="range"]').forEach(input => {
+    paint(input);
+    input.addEventListener("input", () => paint(input));
+  });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    form.querySelectorAll('input[type="range"]').forEach(input => {
+      input.value = input.dataset.default;
+      paint(input);
+    });
+  });
+
+  const baselineFor = name => BASELINE.find(a => a.arm === name);
+
+  const render = results => {
+    resultBody.innerHTML = "";
+    results.forEach(row => {
+      const base = baselineFor(row.arm);
+      const delta = base ? row.recovered_paise - base.recovered_paise : null;
+      const tone = delta === null ? "" : delta > 0 ? "money--positive" : delta < 0 ? "money--negative" : "money--muted";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${row.arm}</td>
+        <td class="money">${rupees(row.recovered_paise)}</td>
+        <td class="money ${tone}">${delta === null ? "—" : (delta > 0 ? "+" : "") + rupees(delta)}</td>
+        <td class="money money--muted">${rupees(row.cost_paise)}</td>
+        <td class="money">${rupees(row.net_paise)}</td>
+        <td class="num">${row.contacts}</td>
+        <td class="num">${row.vetoes}</td>`;
+      resultBody.appendChild(tr);
+    });
+
+    resultEmpty.hidden = true;
+    resultTable.hidden = false;
+  };
+
+  let polling = null;
+
+  const poll = async jobId => {
+    const response = await fetch(`/studio/status/${jobId}`);
+    if (!response.ok) return;
+    const job = await response.json();
+
+    progressFill.style.width = Math.round(job.progress * 100) + "%";
+    progressLabel.textContent = `${job.stage} · ${Math.round(job.progress * 100)}%`;
+    statusEl.textContent = job.status;
+
+    if (job.status === "done") {
+      clearInterval(polling);
+      idle();
+      render(job.results);
+    } else if (job.status === "failed") {
+      clearInterval(polling);
+      // Say what went wrong. "Something went wrong" tells nobody anything.
+      fail("The run failed: " + job.error);
+    }
+  };
+
+  const idle = () => {
+    runButton.disabled = false;
+    runButton.textContent = "Run evaluation";
+    progressWrap.hidden = true;
+  };
+
+  const fail = message => {
+    // A request that fails must put the button back and say why. Leaving it on
+    // "Running…" forever is the worst of both: nothing happened, and nothing
+    // said so.
+    idle();
+    failedEl.hidden = false;
+    failedEl.textContent = message;
+  };
+
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    runButton.disabled = true;
+    runButton.textContent = "Running…";
+    failedEl.hidden = true;
+    progressWrap.hidden = false;
+    progressFill.style.width = "0%";
+    progressLabel.textContent = "starting…";
+
+    const payload = {};
+    form.querySelectorAll('input[type="range"]').forEach(i => payload[i.name] = Number(i.value));
+
+    try {
+      const response = await fetch("/studio/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        fail(`Could not start the run (${response.status} ${response.statusText}).`);
+        return;
+      }
+
+      const { job } = await response.json();
+      polling = setInterval(() => poll(job), 500);
+    } catch (error) {
+      fail("Could not reach the server: " + error.message);
+    }
+  });
+
+  {% if job and job.status == "done" %}
+    render({{ job.results | tojson }});
+  {% endif %}
+</script>
+{% endblock %}
