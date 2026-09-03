@@ -695,6 +695,138 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Policy Studio
+   --------------------------------------------------------------------------- */
+
+.grid-studio {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: var(--s4);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .grid-studio {
+    grid-template-columns: 1fr;
+  }
+}
+
+.knob {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+
+.knob__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.knob__label {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.knob__value {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+/* A moved setting is marked, so it is obvious at a glance which of seven knobs
+   is responsible for a result. */
+.knob__value--moved {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.knob__help {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  line-height: 1.45;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  outline-offset: 4px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+
+.button--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06231d;
+  font-weight: 600;
+  justify-content: center;
+  padding: var(--s2) var(--s4);
+}
+
+.button--primary:hover {
+  filter: brightness(1.08);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding-bottom: var(--s4);
+}
+
+.progress__bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--raised);
+  overflow: hidden;
+}
+
+.progress__fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.progress__label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------------------------
    Layout helpers
    --------------------------------------------------------------------------- */
 

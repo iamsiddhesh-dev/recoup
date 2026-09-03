@@ -158,6 +158,16 @@ a {
   border-radius: var(--radius-sm);
 }
 
+/* `hidden` must actually hide.
+
+   The browser default is `[hidden] { display: none }`, which any later class
+   setting `display` beats — attribute and class selectors have the same
+   specificity. `.empty { display: flex }` silently won, and a hidden empty state
+   rendered on top of the results it was supposed to be replaced by. */
+[hidden] {
+  display: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
