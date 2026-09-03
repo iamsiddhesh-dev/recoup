@@ -11,11 +11,18 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
+from recoup.agent.llm.explainer import summarise, validate
 from recoup.eval import run_all
 from recoup.eval.store import ledger_path, open_ledger, save_summary
 from recoup.ledger.events import EventKind
 from recoup.web.app import create_app
-from recoup.web.views import build_case, build_queue, queue_facets
+from recoup.web.views import (
+    build_case,
+    build_queue,
+    case_facts,
+    explainable_cases,
+    queue_facets,
+)
 from recoup.world.config import WorldConfig
 
 ARM = "recoup_agent"
@@ -327,3 +334,55 @@ def test_small_amounts_keep_their_paise(client, recovered_case):
     assert re.search(r"₹\d+\.\d{2}", response.text), (
         "expected at least one sub-hundred-rupee figure to keep its paise"
     )
+
+
+# ---------------------------------------------------------------------------
+# Explanations
+# ---------------------------------------------------------------------------
+
+
+def test_case_facts_carry_only_what_happened(ledger, recovered_case):
+    """The explainer's whole safety story rests on this being complete and true."""
+    facts = case_facts(recovered_case)
+
+    assert facts.payment_id == recovered_case.payment_id
+    assert facts.amount_paise == recovered_case.amount
+    assert facts.outcome == recovered_case.outcome
+    assert facts.actions, "a case that acted should list its actions"
+    assert all(c in ("sms", "whatsapp", "voice", "email") for c in facts.channels)
+    assert facts.decisions, "the recorded reasoning is what the model narrates"
+
+
+def test_the_brief_grounds_the_deterministic_summary(ledger, rows):
+    """Every case, not a chosen one: our own prose must pass our own validator."""
+    for row in rows[:40]:
+        case = build_case(ledger, row.payment_id, ARM)
+        facts = case_facts(case)
+        problem = validate(summarise(facts), facts)
+        assert problem is None, f"{row.payment_id}: {problem}"
+
+
+def test_the_selection_covers_different_shapes_not_the_best_ones(ledger):
+    """Two of the five shapes are cases where the agent achieved nothing."""
+    chosen = explainable_cases(ledger, ARM)
+
+    assert chosen, "expected at least one explainable case"
+    assert len(chosen) == len(set(chosen)), "no case should be picked twice"
+
+    outcomes = {
+        build_case(ledger, pid, ARM).outcome for pid in chosen
+    }
+    assert outcomes != {"recovered"}, "a selection of only wins is a highlight reel"
+
+
+def test_the_selection_is_stable(ledger):
+    """It feeds a committed cache key, so it cannot wander between runs."""
+    assert explainable_cases(ledger, ARM) == explainable_cases(ledger, ARM)
+
+
+def test_a_case_page_explains_itself_without_a_model(client, recovered_case):
+    """No explanations file exists for this run, so the composed one must show."""
+    response = client.get(f"/case/{recovered_case.payment_id}?arm={ARM}")
+
+    assert 'class="explanation"' in response.text
+    assert "No model was involved." in response.text
