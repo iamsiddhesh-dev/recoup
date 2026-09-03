@@ -29,9 +29,10 @@ from fastapi.templating import Jinja2Templates
 
 from recoup.adapters.webhooks import SignatureError, parse
 from recoup.agent.config import ComplianceConfig
+from recoup.agent.llm.explainer import Explanation, summarise
 from recoup.eval import run_all
 from recoup.eval.sensitivity import load as load_sweep
-from recoup.eval.store import load_summary, open_ledger
+from recoup.eval.store import load_explanations, load_summary, open_ledger
 from recoup.money import rupees
 from recoup.web.jobs import JobRegistry
 from recoup.web.sink import WebhookSink
@@ -44,6 +45,7 @@ from recoup.web.views import (
     build_case,
     build_experiment,
     build_queue,
+    case_facts,
     queue_facets,
 )
 
@@ -222,6 +224,16 @@ def create_app(
         if case is None:
             raise HTTPException(404, f"No events for {payment_id} in arm {arm}")
 
+        # A generated narrative if this case was in the explained selection,
+        # otherwise one composed from the same facts. Never a model call on a page
+        # load: a read-only screen must not spend quota or vary between visits.
+        stored = load_explanations(data_dir).get(payment_id)
+        explanation = (
+            Explanation(text=stored["text"], source=stored["source"])
+            if stored
+            else Explanation(text=summarise(case_facts(case)), source="deterministic")
+        )
+
         return templates.TemplateResponse(
             request,
             "case.html",
@@ -231,6 +243,7 @@ def create_app(
                 "active": "queue",
                 "summary": load_summary(data_dir),
                 "case": case,
+                "explanation": explanation,
             },
         )
 

@@ -80,6 +80,32 @@
   </div>
 </section>
 
+{# -- the plain-language version ------------------------------------------- #}
+{% if explanation %}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">In short</h2>
+    <span class="topbar__spacer"></span>
+    <span class="tag {{ 'tag--recovered' if explanation.source == 'generated' else 'tag--neutral' }}">
+      {{ explanation.source }}
+    </span>
+  </div>
+  <div class="card__body">
+    <p class="explanation">{{ explanation.text }}</p>
+    <p class="small dim" style="margin: var(--s3) 0 0">
+      {% if explanation.source == "generated" %}
+        Written by a model from the record below, and checked against it: an
+        explanation using any figure not in this case's own facts, naming a channel
+        that was not used, or claiming a recovery that did not happen is discarded
+        rather than shown. The model reads the decisions; it does not make them.
+      {% else %}
+        Composed from this case's own facts. No model was involved.
+      {% endif %}
+    </p>
+  </div>
+</section>
+{% endif %}
+
 {# -- the story ----------------------------------------------------------- #}
 <section class="card">
   <div class="card__head">
