@@ -25,6 +25,12 @@
   position: sticky;
   top: 0;
   height: 100vh;
+
+  /* Grid and flex items default to `min-width: auto`, meaning they refuse to
+     shrink below their content. Without this the horizontal nav at narrow widths
+     expands the rail to its full scroll width and drags the entire document
+     sideways — the same root cause as a wide table stretching a page. */
+  min-width: 0;
 }
 
 .rail__brand {
@@ -443,6 +449,252 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Timeline
+
+   One payment's story, in order. A rail down the left with a node per event, so
+   the sequence is readable at a glance and the density of activity is visible in
+   the spacing.
+   --------------------------------------------------------------------------- */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.tl {
+  display: grid;
+  grid-template-columns: 92px 20px 1fr;
+  column-gap: var(--s3);
+  position: relative;
+  padding-bottom: var(--s4);
+}
+
+.tl:last-child {
+  padding-bottom: 0;
+}
+
+/* The connecting line. Drawn on the node column and stopped on the last entry so
+   the rail terminates rather than trailing off. */
+.tl::before {
+  content: "";
+  position: absolute;
+  left: calc(92px + var(--s3) + 9px);
+  top: 18px;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.tl:last-child::before {
+  display: none;
+}
+
+.tl__time {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  text-align: right;
+  padding-top: 3px;
+  white-space: nowrap;
+}
+
+.tl__node {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--muted);
+  position: relative;
+  z-index: 1;
+}
+
+.tl__node--accent   { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }
+.tl__node--refused  { border-color: var(--refused); color: var(--refused); background: var(--refused-wash); }
+.tl__node--warn     { border-color: var(--warn); color: var(--warn); background: var(--warn-wash); }
+.tl__node--critical { border-color: var(--critical); color: var(--critical); background: var(--critical-wash); }
+
+.tl__body {
+  min-width: 0;
+}
+
+.tl__title {
+  font-weight: 600;
+  font-size: var(--fs-base);
+}
+
+.tl__detail {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  margin-top: 1px;
+}
+
+/* ---------------------------------------------------------------------------
+   Working
+
+   The expected-value arithmetic, laid out as a sum with its operators showing.
+
+   This is the most important component in the product. "Expected value: ₹208" is
+   an assertion. The same number with its inputs, its operators and its running
+   total is a claim a merchant can check — and being checkable is the entire
+   difference between an explainable agent and one that merely says it is.
+   --------------------------------------------------------------------------- */
+
+.working {
+  margin-top: var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--raised);
+  overflow: hidden;
+}
+
+.working__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--border);
+}
+
+.working__action {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.working__ev {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.sum {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.sum td {
+  padding: 3px var(--s3);
+  border: none;
+}
+
+.sum__op {
+  width: 16px;
+  font-family: var(--font-mono);
+  color: var(--faint);
+  text-align: center;
+}
+
+.sum__label {
+  color: var(--muted);
+}
+
+.sum__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.sum__note {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  padding-left: var(--s2);
+}
+
+.sum__total td {
+  border-top: 1px solid var(--border);
+  padding-top: var(--s2);
+  font-weight: 600;
+}
+
+.sum__total .sum__value {
+  color: var(--accent);
+}
+
+/* What else was on the table. Kept because a decision you cannot see the
+   alternatives to is not really explained. */
+.alternatives {
+  border-top: 1px solid var(--border);
+  padding: var(--s2) var(--s3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.alternatives__item {
+  font-family: var(--font-mono);
+}
+
+.alternatives__ev {
+  color: var(--faint);
+}
+
+/* ---------------------------------------------------------------------------
+   Case header
+   --------------------------------------------------------------------------- */
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--s4);
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fact__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-md);
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------
+   Filters
+   --------------------------------------------------------------------------- */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.filters select {
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px var(--s2);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+}
+
+.link-row {
+  cursor: pointer;
+}
+
+.link-row td:first-child {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+/* ---------------------------------------------------------------------------
    Layout helpers
    --------------------------------------------------------------------------- */
 
@@ -500,6 +752,7 @@
   .rail__nav {
     flex-direction: row;
     overflow-x: auto;
+    min-width: 0;
   }
 
   .rail__link {
