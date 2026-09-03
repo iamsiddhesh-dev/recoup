@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from recoup.agent.actions import ActionKind, explain
 from recoup.ledger.events import EventKind, Ledger, LedgerEvent
 
 # How each event kind presents. Tone drives colour; a veto is `refused` rather
@@ -75,7 +76,14 @@ class Step:
 
 @dataclass
 class Working:
-    """One decision's arithmetic, laid out to be checked."""
+    """One decision's arithmetic, laid out to be checked.
+
+    `reason` is regenerated here rather than read from the ledger. It is a
+    sentence derived entirely from the numbers beside it, and storing a per-row
+    copy of derivable prose was ~7% of the ledger. Refusals are not carried here
+    either — they are their own events and appear in the timeline in sequence,
+    which is where they belong anyway.
+    """
 
     action: str
     at: datetime
@@ -83,7 +91,6 @@ class Working:
     reason: str
     steps: list[Step]
     alternatives: list[dict] = field(default_factory=list)
-    vetoes: list[dict] = field(default_factory=list)
     note: str = ""
 
 
@@ -152,7 +159,7 @@ def _steps_for(action: str, breakdown: dict) -> list[Step]:
     ]
 
 
-def _working(event: LedgerEvent) -> Working | None:
+def _working(event: LedgerEvent, cause: str | None) -> Working | None:
     data = event.data
     action = data.get("action", "")
     if not action or action == "STOP":
@@ -171,14 +178,23 @@ def _working(event: LedgerEvent) -> Working | None:
         seen.add(name)
         alternatives.append(candidate)
 
+    breakdown = data.get("breakdown", {})
+    ev = data.get("ev", 0)
+
     return Working(
         action=action,
         at=event.at,
-        ev=data.get("ev", 0),
-        reason=data.get("reason", ""),
-        steps=_steps_for(action, data.get("breakdown", {})),
+        ev=ev,
+        reason=explain(
+            action=ActionKind(action),
+            breakdown=breakdown,
+            at=event.at,
+            ev=ev,
+            probability=data.get("probability", 0.0),
+            cause=cause,
+        ),
+        steps=_steps_for(action, breakdown),
         alternatives=alternatives[:4],
-        vetoes=data.get("vetoes", []),
     )
 
 
@@ -198,7 +214,9 @@ def _describe(event: LedgerEvent) -> tuple[str, str]:
             return f"Classified as {cause}", f"{how} · rule {rule}"
 
         case EventKind.DECIDED:
-            return f"Decided: {data.get('action', '')}", data.get("reason", "")
+            # The sentence is regenerated in `_working` from the stored numbers,
+            # so the detail line is filled in by the caller rather than read here.
+            return f"Decided: {data.get('action', '')}", ""
 
         case EventKind.VETOED:
             return f"Refused: {data.get('action', '')}", data.get("why", "")
@@ -234,14 +252,20 @@ def build_case(ledger: Ledger, payment_id: str, arm: str) -> CaseView | None:
     for event in events:
         title, detail = _describe(event)
 
+        # `case.cause` is already set by the time any decision arrives, because
+        # classification always precedes it in the stream.
+        working = (
+            _working(event, case.cause) if event.kind is EventKind.DECIDED else None
+        )
+
         case.entries.append(
             TimelineEntry(
                 at=event.at,
                 kind=event.kind,
                 title=title,
-                detail=detail,
+                detail=working.reason if working else detail,
                 tone=TONE.get(event.kind, "neutral"),
-                working=_working(event) if event.kind is EventKind.DECIDED else None,
+                working=working,
                 data=event.data,
             )
         )
