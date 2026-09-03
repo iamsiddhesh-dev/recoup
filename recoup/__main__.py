@@ -104,6 +104,8 @@ def _demo(args: argparse.Namespace) -> int:
         digests=digests,
     )
 
+    _write_explanations(path)
+
     print()
     print(table(results, "naive_baseline"))
     print()
@@ -138,6 +140,56 @@ def _sweep(args: argparse.Namespace) -> int:
     print()
     print(f"written to {path}")
     return 0
+
+
+def _write_explanations(ledger_file: Path, arm: str = "recoup_agent") -> None:
+    """Narrate a handful of representative cases, once, after the run is written.
+
+    Done here rather than lazily on a page view for the same reason every other
+    model call is batched: one request covers the whole selection, so a judge
+    clicking through cases spends no quota and two visits to the same case cannot
+    disagree with each other.
+
+    Failure is silent by design. Every case already has a deterministic
+    explanation, so a missing model costs prose, not information — and `demo` must
+    not fall over on the last step because a free tier was busy.
+    """
+    from recoup.agent.llm.client import LLMUnavailable
+    from recoup.agent.llm.explainer import Explainer
+    from recoup.eval.store import save_explanations
+    from recoup.ledger.events import Ledger
+    from recoup.web.views import build_case, case_facts, explainable_cases
+
+    with Ledger(ledger_file) as ledger:
+        wanted = explainable_cases(ledger, arm)
+        facts = [
+            case_facts(case)
+            for pid in wanted
+            if (case := build_case(ledger, pid, arm)) is not None
+        ]
+
+    if not facts:
+        return
+
+    explainer = Explainer()
+    try:
+        explainer.warm(facts)
+    except LLMUnavailable:
+        pass
+
+    written = {
+        item.payment_id: {
+            "text": (result := explainer.explain(item)).text,
+            "source": result.source,
+        }
+        for item in facts
+    }
+    save_explanations(written)
+
+    generated = sum(1 for e in written.values() if e["source"] == "generated")
+    print(f"explained {len(written)} cases ({generated} generated)")
+    for rejection in explainer.rejections:
+        print(f"  rejected {rejection.payment_id}: {rejection.reason}")
 
 
 def _reproduce(args: argparse.Namespace) -> int:
