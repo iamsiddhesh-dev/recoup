@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Callable
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -139,6 +140,97 @@ def _sweep(args: argparse.Namespace) -> int:
     return 0
 
 
+def _reproduce(args: argparse.Namespace) -> int:
+    """Re-run the committed seed and check the README's numbers still hold.
+
+    Writes its ledger to a temporary file rather than `data/`, so verifying a
+    claim never disturbs the run the web server is serving.
+    """
+    import tempfile
+
+    from recoup.eval import run_all
+    from recoup.eval.reproduce import claims, compare, load, report, save
+    from recoup.world.config import WorldConfig
+
+    recorded = load(args.claims)
+    if recorded is None and not args.update:
+        print(
+            f"no recorded claims at {args.claims}.\n"
+            "Run `recoup reproduce --update` once to record the current run as the "
+            "baseline, then commit it.",
+            file=sys.stderr,
+        )
+        return 1
+
+    world = WorldConfig.load()
+    if args.seed is not None:
+        world.run.seed = args.seed
+    elif recorded is not None:
+        # The recorded seed wins over whatever world.yaml currently says. A claim
+        # is about a specific run, and silently reproducing a different one would
+        # be worse than failing.
+        world.run.seed = recorded.get("run.seed", world.run.seed)
+
+    print(f"re-running the evaluation (seed {world.run.seed})…")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "reproduce.db"
+        results, ledger = run_all(world, ledger_path=path)
+        digests = {m.arm: ledger.digest(m.arm) for m in results}
+        ledger.close()
+
+    produced = claims(
+        results,
+        seed=world.run.seed,
+        batch_size=world.run.batch_size,
+        horizon_days=world.run.horizon_days,
+        digests=digests,
+    )
+
+    if args.update:
+        written = save(produced, args.claims)
+        print(f"recorded {len(produced)} figures to {written}")
+        return 0
+
+    checks = compare(recorded, produced)
+    print()
+    print(report(checks))
+
+    return 0 if all(check.ok for check in checks) else 1
+
+
+def _clean(args: argparse.Namespace) -> int:
+    """Remove generated state, keeping the expensive things unless asked."""
+    from recoup.clean import human, remove, targets
+
+    found = targets(".", llm_cache=args.llm_cache, reports=args.reports)
+    if not found:
+        print("nothing to clean")
+        return 0
+
+    total = 0
+    for target in found:
+        size = target.size
+        total += size
+        verb = "would remove" if args.dry_run else "removed"
+        print(f"  {verb:<13} {str(target.path):<28} {human(size):>9}  ({target.why})")
+        if not args.dry_run:
+            remove(target)
+
+    print()
+    print(f"{'would free' if args.dry_run else 'freed'} {human(total)}")
+
+    if not (args.llm_cache and args.reports):
+        kept = []
+        if not args.reports:
+            kept.append("reports/ (--reports)")
+        if not args.llm_cache:
+            kept.append("cache/llm/ (--llm-cache)")
+        print(f"kept: {', '.join(kept)}")
+
+    return 0
+
+
 def _serve(args: argparse.Namespace) -> int:
     from recoup.web.app import serve
 
@@ -192,6 +284,8 @@ HANDLERS["probe"] = _probe
 HANDLERS["eval"] = _eval
 HANDLERS["demo"] = _demo
 HANDLERS["sweep"] = _sweep
+HANDLERS["reproduce"] = _reproduce
+HANDLERS["clean"] = _clean
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -235,6 +329,41 @@ def build_parser() -> argparse.ArgumentParser:
             )
             sub.add_argument(
                 "--tag", default="1", help="change to create a fresh link"
+            )
+
+        if name == "reproduce":
+            sub.add_argument(
+                "--claims",
+                # The literal rather than recoup.eval.reproduce.DEFAULT_CLAIMS:
+                # importing it here would pull the whole eval package in just to
+                # build `--help`, and every other command imports lazily for the
+                # same reason.
+                default="reports/claims.json",
+                help="the recorded run to check against (default: %(default)s)",
+            )
+            sub.add_argument(
+                "--update",
+                action="store_true",
+                help="record this run as the new baseline instead of checking against "
+                "one. Commit the result: it is what makes the claim verifiable.",
+            )
+
+        if name == "clean":
+            sub.add_argument(
+                "--reports",
+                action="store_true",
+                help="also remove reports/ — a ~20 minute sweep to regenerate",
+            )
+            sub.add_argument(
+                "--llm-cache",
+                action="store_true",
+                help="also remove cache/llm/ — committed, and rebuilding it needs API "
+                "keys and a daily quota you may not get back today",
+            )
+            sub.add_argument(
+                "--dry-run",
+                action="store_true",
+                help="list what would be removed, and remove nothing",
             )
 
     return parser
