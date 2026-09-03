@@ -534,6 +534,46 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Message
+
+   The copy actually sent to the customer. Set apart from the timeline text so it
+   reads as a quoted artefact rather than as commentary about one.
+   --------------------------------------------------------------------------- */
+
+.message {
+  margin-top: var(--s3);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--raised);
+  overflow: hidden;
+}
+
+.message__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-xs);
+}
+
+.message__channel {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.message__body {
+  margin: 0;
+  padding: var(--s3);
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------
    Working
 
    The expected-value arithmetic, laid out as a sum with its operators showing.
