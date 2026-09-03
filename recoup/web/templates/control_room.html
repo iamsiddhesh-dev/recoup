@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Control Room · Recoup{% endblock %}
+{% block heading %}Control Room{% endblock %}
+
+{% block content %}
+
+{% if not summary %}
+  {# Real copy. An empty screen is the one moment someone definitely needs
+     telling what to do next. #}
+  <div class="card">
+    <div class="empty">
+      <div class="empty__title">No run to show yet</div>
+      <p>Recoup serves a completed run rather than computing one per page load.<br>
+         Generate one and this screen fills in.</p>
+      <code class="empty__hint">python -m recoup demo</code>
+    </div>
+  </div>
+{% else %}
+
+{# -- the scoreboard ------------------------------------------------------ #}
+<section class="stats">
+  <div class="stat stat--headline">
+    <span class="label">Incremental recovery</span>
+    <span class="stat__value">{{ incremental | rupees }}</span>
+    <span class="stat__detail">
+      above naive retry &middot; {{ lift | pct_signed }} lift
+    </span>
+  </div>
+
+  <div class="stat">
+    <span class="label">Recovered</span>
+    <span class="stat__value">{{ agent.recovered_paise | rupees }}</span>
+    <span class="stat__detail">
+      {{ agent.recovered_count }} of {{ summary.observed }} failures
+      &middot; {{ agent.money_recovery_rate | pct }} of money at risk
+    </span>
+  </div>
+
+  <div class="stat">
+    <span class="label">Net of cost</span>
+    <span class="stat__value">{{ agent.net_paise | rupees }}</span>
+    <span class="stat__detail">
+      {{ agent.margin_recovered | rupees }} margin &minus;
+      {{ agent.cost_paise | rupees }} spent
+    </span>
+  </div>
+
+  <div class="stat">
+    <span class="label">Customer contacts</span>
+    <span class="stat__value">{{ agent.contacts }}</span>
+    <span class="stat__detail">
+      {{ "%.2f" | format(agent.contacts_per_recovery) }} per recovery
+    </span>
+  </div>
+
+  <div class="stat">
+    <span class="label">Refused by compliance</span>
+    <span class="stat__value">{{ agent.vetoes }}</span>
+    <span class="stat__detail">actions we would not take</span>
+  </div>
+</section>
+
+{# -- arms ---------------------------------------------------------------- #}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">Arms</h2>
+    <span class="card__note">
+      one world, one set of random draws, one compliance gate &mdash;
+      arms differ only in judgment
+    </span>
+  </div>
+  <div class="card__body card__body--flush table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Arm</th>
+          <th class="money">Recovered</th>
+          <th class="num">Rate</th>
+          <th class="money">Incremental</th>
+          <th class="money">Cost</th>
+          <th class="money">Net</th>
+          <th class="num">Contacts</th>
+          <th class="num">Refusals</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for arm in arms %}
+          <tr data-baseline="{{ 'true' if arm.arm == baseline.arm else 'false' }}"
+              data-highlight="{{ 'true' if arm.arm == agent.arm else 'false' }}">
+            <td>
+              <div>{{ arm.arm }}</div>
+              <div class="small dim">{{ arm.description }}</div>
+            </td>
+            <td class="money">{{ arm.recovered_paise | rupees }}</td>
+            <td class="num">{{ arm.money_recovery_rate | pct }}</td>
+            <td class="money">
+              {% if arm.arm == baseline.arm %}
+                <span class="dim">&mdash;</span>
+              {% else %}
+                <span class="money--positive">
+                  {{ (arm.recovered_paise - baseline.recovered_paise) | rupees }}
+                </span>
+              {% endif %}
+            </td>
+            <td class="money money--muted">{{ arm.cost_paise | rupees }}</td>
+            <td class="money">{{ arm.net_paise | rupees }}</td>
+            <td class="num">{{ arm.contacts }}</td>
+            <td class="num">{{ arm.vetoes }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="grid-2">
+
+  {# -- where the money came from ---------------------------------------- #}
+  <section class="card">
+    <div class="card__head">
+      <h2 class="card__title">How the money came back</h2>
+    </div>
+    <div class="card__body stack">
+      {% if recovered_by_action %}
+        {% for action, count in recovered_by_action %}
+          <div class="stack" style="gap: var(--s1)">
+            <div class="row">
+              <span>{{ action }}</span>
+              <span class="dim small">{{ count }} payments</span>
+              <span class="topbar__spacer"></span>
+              <span class="num small">{{ (count / agent.recovered_count) | pct }}</span>
+            </div>
+            <div class="bar">
+              <div class="bar__fill"
+                   style="width: {{ (count / max_recovered_action * 100) | round(1) }}%"></div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="dim">Nothing recovered in this run.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  {# -- what we refused to do -------------------------------------------- #}
+  <section class="card">
+    <div class="card__head">
+      <h2 class="card__title">What we refused to do</h2>
+      <span class="card__note">a deliverable, not an error log</span>
+    </div>
+    <div class="card__body stack">
+      {% if top_vetoes %}
+        {% for rule, count in top_vetoes %}
+          <div class="stack" style="gap: var(--s1)">
+            <div class="row">
+              <span class="mono small">{{ rule }}</span>
+              <span class="topbar__spacer"></span>
+              <span class="num small">{{ count }}</span>
+            </div>
+            <div class="bar">
+              <div class="bar__fill bar__fill--refused"
+                   style="width: {{ (count / max_veto * 100) | round(1) }}%"></div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="dim">Nothing was refused in this run.</p>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+{# -- the honest reading ------------------------------------------------- #}
+<section class="banner">
+  <div>
+    <div class="banner__title">Read the headline carefully</div>
+    <p class="dim" style="margin: var(--s1) 0 0">
+      Most of the lift over <span class="mono">{{ baseline.arm }}</span> is coverage
+      rather than cleverness: the baseline only retries, and only a quarter of
+      failures can be retried at all. The comparison that measures judgment is
+      against <span class="mono">{{ contact.arm }}</span> &mdash;
+      <span class="money money--positive">{{ (agent.recovered_paise - contact.recovered_paise) | rupees }}</span>
+      more recovered from
+      <span class="mono">{{ contact.contacts - agent.contacts }}</span> fewer contacts.
+    </p>
+  </div>
+</section>
+
+{% endif %}
+{% endblock %}
