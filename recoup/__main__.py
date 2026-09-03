@@ -22,6 +22,7 @@ COMMANDS: dict[str, str] = {
     "demo": "run a batch end to end and serve the control room",
     "eval": "print the arms table: gross, incremental, cost, net, refusals",
     "reproduce": "regenerate every committed figure from fixed seeds",
+    "sweep": "re-run the evaluation with each assumption moved, and report the swing",
     "serve": "run the web server and webhook receiver",
     "probe": "create a real test-mode payment link, to prove the live adapter works",
     "clean": "remove generated state (ledger, reports, caches)",
@@ -110,6 +111,34 @@ def _demo(args: argparse.Namespace) -> int:
     return 0
 
 
+def _sweep(args: argparse.Namespace) -> int:
+    """Re-run the evaluation with each load-bearing assumption moved.
+
+    Slow on purpose — it is doing the work rather than estimating it — and the
+    result is committed so a reader never has to.
+    """
+    import time
+
+    from recoup.eval.sensitivity import run_sweep, save, table
+
+    started = time.monotonic()
+
+    def progress(label: str, done: int, total: int) -> None:
+        elapsed = time.monotonic() - started
+        eta = (elapsed / done) * (total - done) if done else 0
+        print(f"  [{done:>2}/{total}] {label:<28} {eta / 60:>4.1f}m left", flush=True)
+
+    print("sweeping assumptions — this re-runs the whole evaluation at each point")
+    result = run_sweep(on_progress=progress)
+
+    path = save(result)
+    print()
+    print(table(result, args.metric))
+    print()
+    print(f"written to {path}")
+    return 0
+
+
 def _serve(args: argparse.Namespace) -> int:
     from recoup.web.app import serve
 
@@ -162,6 +191,7 @@ HANDLERS["serve"] = _serve
 HANDLERS["probe"] = _probe
 HANDLERS["eval"] = _eval
 HANDLERS["demo"] = _demo
+HANDLERS["sweep"] = _sweep
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -189,6 +219,15 @@ def build_parser() -> argparse.ArgumentParser:
         if name in ("serve", "demo"):
             sub.add_argument("--host", default="127.0.0.1")
             sub.add_argument("--port", type=int, default=8000)
+
+        if name == "sweep":
+            sub.add_argument(
+                "--metric",
+                default="judgment",
+                choices=("judgment", "incremental", "recovered"),
+                help="which headline to tornado (default: the gap over contact_only, "
+                "which is the part that is a claim about the policy engine)",
+            )
 
         if name == "probe":
             sub.add_argument(
