@@ -1,0 +1,102 @@
+{# The shell every screen sits inside: left rail for navigation, sticky top bar
+   carrying run identity, content below.
+
+   The seed sits in the top bar on every screen. Every number in this product is
+   a function of it, and putting it on screen permanently makes reproducibility
+   something a viewer can see rather than something a README asserts. #}
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Recoup{% endblock %}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/components.css">
+</head>
+<body>
+<div class="shell">
+
+  <nav class="rail">
+    <div class="rail__brand">
+      <span class="rail__wordmark">Recoup</span>
+      <span class="rail__tagline">revenue recovery</span>
+    </div>
+
+    <div class="rail__nav">
+      {% for item in nav %}
+        {% if item.built %}
+          <a class="rail__link"
+             href="{{ item.href }}"
+             {% if item.key == active %}aria-current="page"{% endif %}>
+            <span class="rail__icon" aria-hidden="true">{{ item.icon }}</span>
+            <span>{{ item.label }}</span>
+          </a>
+        {% else %}
+          <span class="rail__link rail__link--pending" aria-disabled="true">
+            <span class="rail__icon" aria-hidden="true">{{ item.icon }}</span>
+            <span>{{ item.label }}</span>
+            <span class="rail__pending">soon</span>
+          </span>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="rail__foot">
+      {% if summary %}
+        <span class="chip">
+          <span class="chip__key">seed</span>{{ summary.seed }}
+        </span>
+        <span class="chip">
+          <span class="chip__key">horizon</span>{{ summary.horizon_days }}d
+        </span>
+      {% endif %}
+      <button class="button" type="button" onclick="toggleTheme()">Toggle theme</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <h1 class="topbar__title">{% block heading %}{% endblock %}</h1>
+      <div class="topbar__spacer"></div>
+      {% block topbar_extra %}{% endblock %}
+      {% if summary %}
+        <span class="chip chip--accent">
+          <span class="chip__key">at risk</span>{{ summary.at_risk | rupees }}
+        </span>
+      {% endif %}
+    </header>
+
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+</div>
+
+<script>
+  // Theme choice is a per-viewer convenience, so it lives in localStorage and is
+  // wrapped: a private window or blocked site data must not break the page.
+  function applyStoredTheme() {
+    try {
+      const saved = localStorage.getItem("recoup-theme");
+      if (saved) document.documentElement.dataset.theme = saved;
+    } catch (e) { /* storage unavailable; the default stands */ }
+  }
+
+  function toggleTheme() {
+    const root = document.documentElement;
+    const next = root.dataset.theme === "light" ? "dark" : "light";
+    root.dataset.theme = next;
+    try { localStorage.setItem("recoup-theme", next); } catch (e) {}
+  }
+
+  applyStoredTheme();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
