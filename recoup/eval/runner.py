@@ -24,6 +24,7 @@ from recoup.agent.classify import Classifier
 from recoup.agent.config import ComplianceConfig, PolicyConfig
 from recoup.agent.context import ContextBuilder
 from recoup.agent.executor import Executor
+from recoup.agent.llm.copywriter import Copywriter
 from recoup.domain import PaymentEntity, PaymentStatus
 from recoup.eval.arms import Arm
 from recoup.ledger.events import EventKind, Ledger, LedgerEvent
@@ -82,6 +83,7 @@ class Runner:
         issuers: IssuerBook,
         ledger: Ledger,
         classifier: Classifier | None = None,
+        copywriter: Copywriter | None = None,
     ) -> None:
         self._world = world
         self._policy = policy
@@ -91,6 +93,12 @@ class Runner:
         self._issuers = issuers
         self._ledger = ledger
         self._classifier = classifier or Classifier()
+
+        # Shared across arms on purpose. Copy is a rendering concern, not a policy
+        # one, and the simulator has no basis for modelling whether wording
+        # changes outcomes — so varying it between arms would add noise to the
+        # comparison without measuring anything.
+        self._copywriter = copywriter or Copywriter(use_llm=False)
 
     def run(self, arm: Arm, on_progress: ProgressHook | None = None) -> RunResult:
         """Drive one arm through the horizon.
@@ -118,6 +126,8 @@ class Runner:
             notifier=notifier,
             context=context_builder,
             cost_of=self._policy.cost_of,
+            copywriter=self._copywriter,
+            merchant=self._world.run.merchant_name,
         )
 
         result = RunResult(arm=arm.name, description=arm.description, ledger=self._ledger)

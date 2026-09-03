@@ -34,7 +34,7 @@ from recoup.adapters.base import (
 )
 from recoup.agent.actions import ActionKind, Decision
 from recoup.agent.context import ContextBuilder, DecisionContext
-from recoup.domain import Language
+from recoup.agent.llm.copywriter import Copywriter
 from recoup.ledger.events import EventKind, LedgerEvent
 
 
@@ -59,12 +59,19 @@ class Executor:
         notifier: Notifier,
         context: ContextBuilder,
         cost_of,
+        copywriter: Copywriter | None = None,
+        merchant: str = "the merchant",
     ) -> None:
         self._arm = arm
         self._adapter = adapter
         self._notifier = notifier
         self._context = context
         self._cost_of = cost_of
+        # Defaults to a copywriter with no model, which serves the hand-written
+        # fallback templates. Messaging must never depend on a model being
+        # reachable.
+        self._copywriter = copywriter or Copywriter(use_llm=False)
+        self._merchant = merchant
 
     @staticmethod
     def idempotency_key(payment_id: str, attempt: int, action: ActionKind) -> str:
@@ -202,13 +209,24 @@ class Executor:
 
     def _contact(self, decision, context, at, attempt, record, events):
         link = self._link_for(context, attempt)
+        customer_ref = context.customer_ref or ""
+
+        language = self._notifier.preferred_language(customer_ref)
+        body, copy_source = self._copywriter.render(
+            context.cause,
+            language,
+            decision.action.channel,
+            amount_paise=context.amount,
+            link=link.url if link else "",
+            merchant=self._merchant,
+        )
 
         result = self._notifier.send(
             NudgeRequest(
-                customer_ref=context.customer_ref or "",
+                customer_ref=customer_ref,
                 channel=decision.action.channel,
-                language=Language.ENGLISH,
-                body="Your payment did not go through.",
+                language=language,
+                body=body,
                 payment_id=context.payment.id,
                 idempotency_key=self.idempotency_key(
                     context.payment.id, attempt, decision.action
@@ -220,8 +238,8 @@ class Executor:
 
         cost = self._cost_of(str(decision.action))
 
-        if result.delivered and context.customer_ref:
-            self._context.note_contact(context.customer_ref, at)
+        if result.delivered and customer_ref:
+            self._context.note_contact(customer_ref, at)
 
         record(
             EventKind.EXECUTED,
@@ -231,6 +249,11 @@ class Executor:
             acted_on=result.acted_on,
             with_link=link is not None,
             detail=result.detail,
+            # The message that was actually sent, so the case screen can show a
+            # reader what the customer received rather than describing it.
+            body=body,
+            language=str(language),
+            copy_source=copy_source,
         )
 
         if result.acted_on:
