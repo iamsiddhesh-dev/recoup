@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from recoup.ledger.events import EventKind, Ledger
+from recoup.money import rupees
 
 
 @dataclass
@@ -130,10 +131,6 @@ class Comparison:
         return self.incremental_paise / self.baseline.recovered_paise
 
 
-def rupees(paise: int) -> str:
-    return f"₹{paise / 100:,.0f}"
-
-
 def table(results: list[ArmMetrics], baseline_name: str) -> str:
     """The arms table, for the terminal.
 
@@ -143,8 +140,12 @@ def table(results: list[ArmMetrics], baseline_name: str) -> str:
     """
     baseline = next(m for m in results if m.arm == baseline_name)
 
+    # Measured rather than fixed: `recoup_agent_no_llm` is nineteen characters and
+    # a hardcoded column overflowed it, shifting that one row out of alignment.
+    name_width = max(len("arm"), max(len(m.arm) for m in results)) + 2
+
     header = (
-        f"{'arm':<18}{'recovered':>13}{'rate':>8}{'incremental':>14}"
+        f"{'arm':<{name_width}}{'recovered':>13}{'rate':>8}{'incremental':>14}"
         f"{'cost':>10}{'net':>13}{'contacts':>10}{'vetoes':>8}"
     )
     lines = [header, "-" * len(header)]
@@ -157,7 +158,7 @@ def table(results: list[ArmMetrics], baseline_name: str) -> str:
             else f"{rupees(comparison.incremental_paise)}"
         )
         lines.append(
-            f"{metrics.arm:<18}"
+            f"{metrics.arm:<{name_width}}"
             f"{rupees(metrics.recovered_paise):>13}"
             f"{metrics.money_recovery_rate:>7.1%} "
             f"{incremental:>14}"

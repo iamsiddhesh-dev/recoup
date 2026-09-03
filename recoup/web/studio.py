@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from recoup.agent.config import ComplianceConfig, PolicyConfig
+from recoup.money import rupees
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class Knob:
 
     def display(self, value: float) -> str:
         if self.unit == "₹":
-            return f"₹{value / 100:,.2f}" if value < 10_000 else f"₹{value / 100:,.0f}"
+            return rupees(value, precise_below=10_000)
         return f"{value:g}{self.unit}"
 
 

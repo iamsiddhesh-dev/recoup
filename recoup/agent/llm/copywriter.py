@@ -43,6 +43,7 @@ from pydantic import BaseModel, Field
 
 from recoup.agent.llm.client import LLMClient
 from recoup.domain import Channel, FailureCause, Language
+from recoup.money import rupees
 
 # Longest a message may be, per channel. SMS is the binding one: a single GSM
 # segment is 160 characters, and a template that overflows after substitution
@@ -178,7 +179,7 @@ def validate(text: str, channel: str) -> str | None:
     limit = LIMITS.get(channel, 400)
     # Measured after substitution, using a generous stand-in, because a template
     # that fits and a message that fits are different things.
-    rendered = _substitute(text, amount="₹12,345", link="https://rzp.io/l/xxxxxxxx")
+    rendered = _substitute(text, amount=rupees(1_234_500), link="https://rzp.io/l/xxxxxxxx")
     if len(rendered) > limit:
         return f"too long for {channel}: {len(rendered)} > {limit}"
 
@@ -350,7 +351,7 @@ class Copywriter:
 
         rendered = _substitute(
             template,
-            amount=f"₹{amount_paise / 100:,.0f}",
+            amount=rupees(amount_paise),
             link=link or "your payment link",
             merchant=merchant,
         )
