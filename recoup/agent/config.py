@@ -151,6 +151,7 @@ class MandateRules(BaseModel):
 class EscalationRules(BaseModel):
     human_review_above_paise: int
     max_escalations_per_run: int
+    max_escalations_per_payment: int = 1
 
 
 class ExecutionRules(BaseModel):

@@ -130,6 +130,12 @@ escalation:
   # cap being hit as an exception rather than silently dropping cases.
   max_escalations_per_run: 50
 
+  # One payment, one human. A second reviewer does not make the first one's
+  # answer different, and the run cap is a shared pool: four payments taking
+  # twelve slots each consumed 48 of 50 and starved every other case that
+  # needed one. See FAILURES.md.
+  max_escalations_per_payment: 1
+
 # ---------------------------------------------------------------------------
 # Execution safety
 # ---------------------------------------------------------------------------

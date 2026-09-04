@@ -170,6 +170,7 @@ class DecisionContext:
     now: datetime
 
     attempts: int = 0
+    escalations: int = 0
     contacts_in_window: int = 0
     last_contact_at: datetime | None = None
     consecutive_failures: int = 0
@@ -227,6 +228,7 @@ class ContextBuilder:
         self.model = model or RecoveryModel(policy)
 
         self._attempts: dict[str, int] = {}
+        self._escalations: dict[str, int] = {}
         self._consecutive_failures: dict[str, int] = {}
         self._contacts: dict[str, list[datetime]] = {}
         self._downtimes: dict[str, DowntimeEntity] = {}
@@ -241,6 +243,15 @@ class ContextBuilder:
             self._consecutive_failures[payment_id] = (
                 self._consecutive_failures.get(payment_id, 0) + 1
             )
+
+    def note_escalation(self, payment_id: str) -> None:
+        """Handing one payment to a human, counted per payment.
+
+        Tracked here beside attempts and contacts rather than inside the
+        compliance gate, so the rule that reads it is a pure function of the
+        context it is given.
+        """
+        self._escalations[payment_id] = self._escalations.get(payment_id, 0) + 1
 
     def note_contact(self, customer_ref: str, at: datetime) -> None:
         self._contacts.setdefault(customer_ref, []).append(at)
@@ -293,6 +304,7 @@ class ContextBuilder:
             classification=classification,
             now=now,
             attempts=self._attempts.get(payment.id, 0),
+            escalations=self._escalations.get(payment.id, 0),
             consecutive_failures=self._consecutive_failures.get(payment.id, 0),
             contacts_in_window=self.contacts_in_window(payment.customer_ref, now),
             last_contact_at=self.last_contact(payment.customer_ref),
