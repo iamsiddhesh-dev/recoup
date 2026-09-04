@@ -386,3 +386,21 @@ def test_a_case_page_explains_itself_without_a_model(client, recovered_case):
 
     assert 'class="explanation"' in response.text
     assert "No model was involved." in response.text
+
+
+def test_the_ai_calls_page_reports_the_committed_cache(client):
+    """Every model call, re-checked on load rather than read from a record."""
+    response = client.get("/ai")
+
+    assert response.status_code == 200
+    assert "every model call in the run, not a sample" in response.text
+    assert "gemini-3.7-flash" in response.text
+    assert "Each output checked against" in response.text
+
+
+def test_the_ai_calls_page_shows_the_prompts_in_full(client):
+    """"Here is exactly what we asked" is the claim the screen exists to support."""
+    response = client.get("/ai")
+
+    assert response.text.count('class="transcript__text"') >= 9
+    assert "You explain payment recovery decisions" in response.text
