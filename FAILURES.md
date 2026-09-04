@@ -259,3 +259,74 @@ producing a confident zero.
 **The general shape.** A measurement that reports "no effect" deserves more
 scrutiny than one reporting a large effect, not less. A large effect is usually
 real; no effect is often the instrument being disconnected.
+
+---
+
+## Four payments quietly consumed the entire human-review budget
+
+**Found by:** reading a case brief while building the explainer, and noticing it
+listed `ESCALATE_HUMAN` twelve times for one payment.
+
+Escalation hands a case to a person. The executor records it, writes a `STOPPED`
+event, and returns an `Execution` — with `succeeded=False`, because no money came
+back. The runner's rule for what to do next was:
+
+```python
+if not executed.succeeded and when < horizon:
+    reschedule(RECONSIDER)
+```
+
+So every escalated payment came back a minute later. The policy proposed
+escalation again — nothing about the situation had changed — the gate allowed it,
+and the loop ran until the per-payment decision cap of twelve stopped it.
+
+The result on the committed seed: **48 escalations across just four payments,
+twelve each, against a run cap of fifty.** ₹5,280 spent on forty-four handovers of
+cases that had already been handed over. Two more repeats on any one of them and
+the pool would have been exhausted, and every subsequent payment that genuinely
+warranted a human would have been refused one.
+
+**Why nothing caught it.** Every individual piece behaved correctly. The executor
+did record the escalation and did stop touching the payment. The compliance gate
+did enforce its run cap — 48 is under 50, so it never fired. The policy did price
+escalation correctly each time it was asked. `actions_by_kind` showed
+`ESCALATE_HUMAN: 48` and 48 looks like forty-eight escalated payments, which would
+have been a reasonable number. The failure was only visible in the *distribution*,
+and nothing summarised that.
+
+It also cost nothing detectable in recovery, because escalation never recovers
+money in this simulator — so the totals moved by ₹5,280 of cost and not one rupee
+of revenue. A bug that only makes you slightly poorer is much harder to notice
+than one that breaks something.
+
+**Fixed in two places, deliberately.**
+
+`Execution` now carries `terminal` alongside `succeeded`. They are different
+questions — handing a case to a human did not recover the money and is also not a
+failed attempt worth retrying — and collapsing them into one boolean is what
+created the loop. That is the root cause.
+
+The compliance gate separately refuses a second escalation on the same payment,
+via `max_escalations_per_payment`. This is defence in depth and it is the more
+important of the two: "one payment, one human" is a *policy*, and a policy that
+holds only because of the shape of a scheduling loop somewhere else is not
+enforced, it is coincidental. The previous entry in this file is about a
+compliance rule that looked present and did nothing; the lesson generalises to
+rules that are absent because another layer happens to make them unnecessary.
+
+That rule does not fire on the committed seed — with the runner fixed, a second
+escalation is never proposed. A rule that never fires is exactly the shape of the
+mandate bug above, so it is covered by unit tests that construct the condition
+directly and assert the veto, rather than being trusted because the run looks
+clean.
+
+**What changed in the numbers.** Recovery, contacts and refusals are identical to
+the rupee: escalation never recovered anything, so removing forty-four of them
+removed only cost. Agent spend fell from ₹8,336 to ₹3,056 and net margin rose from
+₹1,43,347 to ₹1,48,627. The headline incremental figure of ₹3,94,791 is unchanged,
+because it is measured on recovery.
+
+**The general shape.** A cap on a shared resource is not a cap on any one consumer
+of it. `max_escalations_per_run` was doing exactly what it said and was still the
+wrong rule on its own, because the interesting failure was not "too many
+escalations" but "too few payments receiving them".

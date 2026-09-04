@@ -6,7 +6,7 @@ that decision actually earned — against a holdout.
 
 > **On a 5,000-payment batch — 1,605 failures, ₹30,02,856 at risk — Recoup recovers
 > ₹5,41,724, of which ₹3,94,791 is incremental over the naive fixed-retry schedule
-> merchants actually run. It spends ₹8,336 on 926 contacts to do it, and refuses 903
+> merchants actually run. It spends ₹3,056 on 926 contacts to do it, and refuses 903
 > actions on compliance grounds.**
 >
 > Seed `20260902`. Reproduce with `make eval` — no API key required.
@@ -22,9 +22,9 @@ Incremental recovery is what the agent is actually worth.
 | Arm | What it does | Recovered | Contacts | Cost | Net margin |
 |---|---|---:|---:|---:|---:|
 | `naive_baseline` | fixed retry schedule, no regard for cause | ₹1,46,933 | 0 | ₹2,509 | ₹38,632 |
-| `contact_only` | always contact, never reason about it | ₹4,14,362 | 975 | ₹6,386 | ₹1,09,636 |
-| **`recoup_agent`** | **expected-value policy + compliance gate** | **₹5,41,724** | **926** | **₹8,336** | **₹1,43,347** |
-| `recoup_agent_no_llm` | ablation — deterministic classifier only | ₹5,41,963 | 927 | ₹8,338 | ₹1,43,412 |
+| `contact_only` | always contact, never reason about it | ₹4,14,362 | 975 | ₹1,106 | ₹1,14,916 |
+| **`recoup_agent`** | **expected-value policy + compliance gate** | **₹5,41,724** | **926** | **₹3,056** | **₹1,48,627** |
+| `recoup_agent_no_llm` | ablation — deterministic classifier only | ₹5,41,963 | 927 | ₹3,058 | ₹1,48,692 |
 
 All four arms run against the same world, the same failures, in the same order, with the
 same underlying luck. Outcomes are drawn from `(seed, payment_id, attempt)`, so two arms
@@ -152,7 +152,7 @@ arm's stream is hashed when written, and the audit screen re-hashes it in front 
 |---|---|
 | Unmapped free-text error → taxonomy + a proposed mapping rule for human review | Retry timing → empirical success model (cause × issuer × hour) |
 | Recovery copy, generated as **templates** in English, Hinglish and Hindi, behind a validator | Action selection → expected-value argmax |
-| | Compliance → hard rules, no model in the loop |
+| A case narrated in prose for the merchant, from facts already in the ledger | Compliance → hard rules, no model in the loop |
 | | All money math → arithmetic |
 | | Root-cause mapping for known error codes → lookup table |
 
@@ -172,16 +172,28 @@ Two rules make the model safe to put in front of a customer:
   card number is indistinguishable from fraud. Copy mentioning a credential is discarded
   and a hand-written fallback used instead, with the rejection recorded.
 
-### Four model calls per run
+The case explainer inverts the first rule rather than repeating it: it **may only use
+numbers it was given.** Every digit run in a generated explanation must appear in that
+case's own brief, so a narrative cannot invent "three retry attempts" for a payment that
+had one — on the screen whose entire purpose is showing that the numbers add up. It also
+cannot name a channel that was not used or claim a recovery that did not happen. Anything
+that fails falls back to an explanation composed from the same facts with no model
+involved, so every case has one.
+
+### Five model calls per run
 
 The free-tier budget settled the architecture before taste could. A per-payment call would
 need ~1,500 requests per run, which exceeds Gemini Flash's daily allowance by 75× and
 Groq's token budget by 6×. **A per-payment LLM call here is not merely poor judgment; it
 is impossible.**
 
-So the calls are batched: every unmapped error in the run goes up in one request, and the
-copy matrix — 7 causes × 3 languages × 4 channels — in three more, one per language.
-Four calls per run, against a twenty-per-day quota.
+So the calls are batched: every unmapped error in the run goes up in one request, the copy
+matrix — 7 causes × 3 languages × 4 channels — in three more, one per language, and every
+case explanation in a fifth. Five calls per run, against a twenty-per-day quota.
+
+Nothing is generated on a page load. Explaining a case on demand would be a call per view,
+so a judge clicking through ten cases would spend half the daily allowance on a read-only
+screen — and two visits to the same case could disagree with each other.
 
 Responses are content-addressed and **committed to `cache/llm/`**, so the reported numbers
 reproduce on a clean clone with no key and no network. Keys are only needed to regenerate
