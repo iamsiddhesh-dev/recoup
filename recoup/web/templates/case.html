@@ -214,3 +214,20 @@
 </section>
 
 {% endblock %}
+
+{% block scripts %}
+<script>
+// The same movement as the queue's j/k, one level down: [ and ] step to the
+// larger and smaller payment without going back.
+(function () {
+  const links = [...document.querySelectorAll(".topbar a[href^='/case/']")];
+  const [larger, smaller] = links;
+
+  window.recoupKeys = function (event) {
+    if (event.key === "[" && larger) { larger.click(); return true; }
+    if (event.key === "]" && smaller) { smaller.click(); return true; }
+    return false;
+  };
+})();
+</script>
+{% endblock %}
