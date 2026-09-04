@@ -61,6 +61,73 @@
   </div>
 </section>
 
+{# -- the replay ---------------------------------------------------------- #}
+{% if frames and frames.rows %}
+<section class="card" id="replay" hidden>
+  <div class="card__head">
+    <h2 class="card__title">Thirty days, replayed</h2>
+    <span class="card__note">
+      every figure below is the run as it stood at that moment, not a projection
+    </span>
+  </div>
+
+  <div class="card__body">
+    <div class="replay__controls">
+      <button class="button button--play" type="button" id="replay-play"
+              aria-label="Play the replay">▶</button>
+
+      <input class="replay__range" type="range" id="replay-range"
+             min="0" max="{{ frames.rows | length - 1 }}"
+             value="{{ frames.rows | length - 1 }}" step="1"
+             aria-label="Position in simulated time">
+
+      <span class="replay__clock mono" id="replay-clock"></span>
+
+      <button class="button" type="button" id="replay-reset">Now</button>
+    </div>
+
+    {# The recovery curve, with a marker at the scrub position. Drawn from the
+       same frames the numbers come from, so the line and the figures cannot
+       disagree. #}
+    <svg class="replay__curve" id="replay-curve" viewBox="0 0 1000 160"
+         preserveAspectRatio="none" role="img"
+         aria-label="Money recovered over the thirty-day run">
+      <path id="replay-area" class="replay__area" d=""></path>
+      <path id="replay-line" class="replay__line" d=""></path>
+      <line id="replay-marker" class="replay__marker" x1="0" y1="0" x2="0" y2="160"></line>
+    </svg>
+
+    <div class="stats stats--replay">
+      <div class="stat stat--headline">
+        <span class="label">Recovered by then</span>
+        <span class="stat__value" id="replay-recovered"></span>
+        <span class="stat__detail"><span id="replay-count"></span> payments</span>
+      </div>
+      <div class="stat">
+        <span class="label">Failures seen</span>
+        <span class="stat__value" id="replay-observed"></span>
+        <span class="stat__detail"><span id="replay-at-risk"></span> at risk</span>
+      </div>
+      <div class="stat">
+        <span class="label">Still open</span>
+        <span class="stat__value" id="replay-open"></span>
+        <span class="stat__detail">awaiting an outcome</span>
+      </div>
+      <div class="stat">
+        <span class="label">Contacts sent</span>
+        <span class="stat__value" id="replay-contacts"></span>
+        <span class="stat__detail"><span id="replay-retries"></span> retries</span>
+      </div>
+      <div class="stat">
+        <span class="label">Refused</span>
+        <span class="stat__value" id="replay-vetoes"></span>
+        <span class="stat__detail">by compliance, so far</span>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
 {# -- arms ---------------------------------------------------------------- #}
 <section class="card">
   <div class="card__head">
@@ -188,5 +255,138 @@
   </div>
 </section>
 
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if frames and frames.rows %}
+<script id="replay-data" type="application/json">{{ frames | tojson }}</script>
+<script>
+(function () {
+  // Progressive enhancement: the card ships hidden and is revealed here, so a
+  // browser that cannot run this shows no half-working slider.
+  const data = JSON.parse(document.getElementById("replay-data").textContent);
+  const rows = data.rows;
+  if (!rows.length) return;
+
+  const col = {};
+  data.columns.forEach((name, i) => { col[name] = i; });
+  const at = (row, name) => row[col[name]];
+
+  const card = document.getElementById("replay");
+  const range = document.getElementById("replay-range");
+  const play = document.getElementById("replay-play");
+  const reset = document.getElementById("replay-reset");
+  const clock = document.getElementById("replay-clock");
+  const curve = document.getElementById("replay-curve");
+  const line = document.getElementById("replay-line");
+  const area = document.getElementById("replay-area");
+  const marker = document.getElementById("replay-marker");
+
+  const el = id => document.getElementById(id);
+  const out = {
+    recovered: el("replay-recovered"), count: el("replay-count"),
+    observed: el("replay-observed"), atRisk: el("replay-at-risk"),
+    open: el("replay-open"), contacts: el("replay-contacts"),
+    retries: el("replay-retries"), vetoes: el("replay-vetoes"),
+  };
+
+  // Indian digit grouping: last three, then twos. Matches recoup/money.py — the
+  // scrubber must not disagree with the figures printed above it.
+  function group(digits) {
+    if (digits.length <= 3) return digits;
+    const head = digits.slice(0, -3), tail = digits.slice(-3);
+    const pairs = [];
+    let rest = head;
+    while (rest.length > 2) { pairs.unshift(rest.slice(-2)); rest = rest.slice(0, -2); }
+    if (rest) pairs.unshift(rest);
+    return pairs.join(",") + "," + tail;
+  }
+  const rupees = paise => "\u20B9" + group(String(Math.round(Math.abs(paise) / 100)));
+  const count = n => group(String(n));
+
+  const start = new Date(data.start);
+  const MS_PER_DAY = 86400000;
+
+  function stamp(day) {
+    const when = new Date(start.getTime() + day * MS_PER_DAY);
+    const date = when.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    return "day " + Math.floor(day) + " \u00B7 " + date;
+  }
+
+  // --- the curve, drawn once ---------------------------------------------
+  const W = 1000, H = 160;
+  const peak = Math.max(...rows.map(r => at(r, "recovered_paise"))) || 1;
+  const span = at(rows[rows.length - 1], "day") || 1;
+  const x = day => (day / span) * W;
+  const y = paise => H - (paise / peak) * (H - 8);
+
+  const points = rows.map(r => x(at(r, "day")).toFixed(1) + "," + y(at(r, "recovered_paise")).toFixed(1));
+  line.setAttribute("d", "M" + points.join("L"));
+  area.setAttribute("d", "M0," + H + "L" + points.join("L") + "L" + W + "," + H + "Z");
+
+  // --- rendering one frame ------------------------------------------------
+  function render(index) {
+    const row = rows[index];
+    clock.textContent = stamp(at(row, "day"));
+    out.recovered.textContent = rupees(at(row, "recovered_paise"));
+    out.count.textContent = count(at(row, "recovered_count"));
+    out.observed.textContent = count(at(row, "observed"));
+    out.atRisk.textContent = rupees(at(row, "at_risk_paise"));
+    out.open.textContent = count(at(row, "open_count"));
+    out.contacts.textContent = count(at(row, "contacts"));
+    out.retries.textContent = count(at(row, "retries"));
+    out.vetoes.textContent = count(at(row, "vetoes"));
+
+    const px = x(at(row, "day"));
+    marker.setAttribute("x1", px);
+    marker.setAttribute("x2", px);
+    curve.style.setProperty("--progress", (index / (rows.length - 1)) * 100 + "%");
+  }
+
+  // --- playback -----------------------------------------------------------
+  // The whole run in about twelve seconds: long enough to watch money accumulate,
+  // short enough to sit inside a demo without anyone waiting.
+  const DURATION = 12000;
+  let timer = null;
+
+  const reduceMotion = window.matchMedia
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function stop() {
+    if (timer) { clearInterval(timer); timer = null; }
+    play.textContent = "\u25B6";
+    play.setAttribute("aria-label", "Play the replay");
+  }
+
+  function begin() {
+    if (Number(range.value) >= rows.length - 1) range.value = 0;
+    play.textContent = "\u2016";
+    play.setAttribute("aria-label", "Pause the replay");
+    const tick = DURATION / rows.length;
+    timer = setInterval(() => {
+      const next = Number(range.value) + 1;
+      if (next >= rows.length) { stop(); return; }
+      range.value = next;
+      render(next);
+    }, tick);
+  }
+
+  play.addEventListener("click", () => (timer ? stop() : begin()));
+  range.addEventListener("input", () => { stop(); render(Number(range.value)); });
+  reset.addEventListener("click", () => {
+    stop();
+    range.value = rows.length - 1;
+    render(rows.length - 1);
+  });
+
+  // Reduced motion gets the scrubber without the animation: dragging is the
+  // reader's own choice, autoplay is ours.
+  if (reduceMotion) play.hidden = true;
+
+  render(rows.length - 1);
+  card.hidden = false;
+})();
+</script>
 {% endif %}
 {% endblock %}

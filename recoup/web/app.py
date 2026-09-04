@@ -32,7 +32,12 @@ from recoup.agent.config import ComplianceConfig
 from recoup.agent.llm.explainer import Explanation, summarise
 from recoup.eval import run_all
 from recoup.eval.sensitivity import load as load_sweep
-from recoup.eval.store import load_explanations, load_summary, open_ledger
+from recoup.eval.store import (
+    load_explanations,
+    load_frames,
+    load_summary,
+    open_ledger,
+)
 from recoup.money import rupees
 from recoup.web.aicalls import build_ai_calls
 from recoup.web.jobs import JobRegistry
@@ -41,6 +46,7 @@ from recoup.web.studio import KNOBS
 from recoup.web.studio import apply as studio_apply
 from recoup.web.studio import clean as studio_clean
 from recoup.web.studio import defaults as studio_defaults
+from recoup.web.timeline import build_frames, to_payload
 from recoup.web.views import (
     build_audit,
     build_case,
@@ -174,6 +180,19 @@ def create_app(
                 "top_vetoes": vetoes,
                 "max_veto": max((c for _, c in vetoes), default=1),
             }
+
+            # Precomputed by `recoup demo`. Rebuilt here only if that file is
+            # missing, so an older run still scrubs rather than showing nothing.
+            frames = load_frames(data_dir)
+            if frames is None:
+                ledger = open_ledger(data_dir)
+                if ledger is not None:
+                    try:
+                        frames = to_payload(build_frames(ledger, AGENT))
+                    finally:
+                        ledger.close()
+
+            context["frames"] = frames
 
         return templates.TemplateResponse(request, "control_room.html", context)
 
