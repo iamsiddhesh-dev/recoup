@@ -19,12 +19,21 @@
   <div class="card__head">
     <h2 class="card__title">Failures</h2>
     <span class="card__note">
-      {{ rows | length }} shown, largest first
+      {% if page and page.total %}
+        {{ page.first | int_comma }}&ndash;{{ page.last | int_comma }}
+        of {{ page.total | int_comma }}, largest first
+      {% else %}
+        largest first
+      {% endif %}
     </span>
   </div>
 
   <div class="card__body">
     <form class="filters" method="get">
+      <label class="label" for="q">Find</label>
+      <input class="input" type="search" id="q" name="q" value="{{ q }}"
+             placeholder="payment id, cause, method">
+
       <label class="label" for="arm">Arm</label>
       <select id="arm" name="arm" onchange="this.form.submit()">
         {% for a in arms %}
@@ -48,14 +57,16 @@
         {% endfor %}
       </select>
 
-      {% if outcome or cause %}
+      <button class="button" type="submit">Search</button>
+
+      {% if outcome or cause or q %}
         <a class="button" href="/queue?arm={{ arm }}">Clear</a>
       {% endif %}
     </form>
   </div>
 
   <div class="card__body card__body--flush table-scroll">
-    {% if rows %}
+    {% if page and page.rows %}
       <table class="table">
         <thead>
           <tr>
@@ -71,7 +82,7 @@
           </tr>
         </thead>
         <tbody>
-          {% for row in rows %}
+          {% for row in page.rows %}
             <tr class="link-row"
                 onclick="location.href='/case/{{ row.payment_id }}?arm={{ arm }}'">
               <td>
@@ -103,11 +114,36 @@
       </table>
     {% else %}
       <div class="empty">
-        <div class="empty__title">Nothing matches those filters</div>
-        <p>No failure in this run has that combination of outcome and cause.</p>
+        <div class="empty__title">Nothing matches</div>
+        <p>No failure in this run fits that combination of search, outcome and cause.</p>
       </div>
     {% endif %}
   </div>
+
+  {% if page and (page.has_more or page.has_previous) %}
+    {# Every failure is reachable. The queue used to render the largest 200 and
+       stop, which put 87% of this run — and all of the small-value cases where
+       the agent deliberately did nothing — beyond reach. #}
+    <div class="card__body pager">
+      {% set base = "/queue?arm=" ~ arm ~ ("&outcome=" ~ outcome if outcome else "") ~ ("&cause=" ~ cause if cause else "") ~ ("&q=" ~ q if q else "") %}
+      {% if page.has_previous %}
+        <a class="button" href="{{ base }}&offset={{ page.previous_offset }}">&larr; Previous</a>
+      {% else %}
+        <span class="button button--disabled" aria-disabled="true">&larr; Previous</span>
+      {% endif %}
+
+      <span class="pager__position">
+        {{ page.first | int_comma }}&ndash;{{ page.last | int_comma }}
+        of {{ page.total | int_comma }}
+      </span>
+
+      {% if page.has_more %}
+        <a class="button" href="{{ base }}&offset={{ page.next_offset }}">Next &rarr;</a>
+      {% else %}
+        <span class="button button--disabled" aria-disabled="true">Next &rarr;</span>
+      {% endif %}
+    </div>
+  {% endif %}
 </section>
 
 {% endif %}
