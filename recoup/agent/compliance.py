@@ -212,6 +212,18 @@ class ComplianceGate:
                 ),
             )
 
+        if context.escalations >= rules.max_escalations_per_payment:
+            return Veto(
+                rule="escalation:already_escalated",
+                action=candidate.action,
+                why=(
+                    f"already handed to human review "
+                    f"{context.escalations} time(s). A second reviewer does not "
+                    f"make the first one's answer different, and each slot spent "
+                    f"here is one not spent on another payment."
+                ),
+            )
+
         if self._escalations >= rules.max_escalations_per_run:
             return Veto(
                 rule="escalation:run_cap",
