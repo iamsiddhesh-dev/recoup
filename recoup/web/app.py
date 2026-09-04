@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, Request
@@ -51,9 +52,10 @@ from recoup.web.views import (
     build_audit,
     build_case,
     build_experiment,
-    build_queue,
     case_facts,
+    neighbours,
     queue_facets,
+    search_queue,
 )
 
 EVENT_ID_HEADER = "x-razorpay-event-id"
@@ -77,6 +79,10 @@ NAV = [
     },
     {"key": "ai", "label": "AI Calls", "href": "/ai", "icon": "◇", "built": True},
 ]
+
+# Rows per queue page. Large enough that scrolling is the normal way to read it,
+# small enough that the page stays under a hundred kilobytes.
+QUEUE_PAGE = 100
 
 BASELINE = "naive_baseline"
 AGENT = "recoup_agent"
@@ -103,6 +109,24 @@ def _pct_signed(value) -> str:
 
 def _int_comma(value) -> str:
     return "—" if value is None else f"{int(value):,}"
+
+
+def _when(value) -> str:
+    """An ISO timestamp as a date a person reads.
+
+    Shown beside the seed because reproducibility has two halves: which inputs,
+    and when they were last run. A stale run that still says "verified" is the
+    thing this pairing prevents.
+    """
+    if not value:
+        return "—"
+    try:
+        when = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return "—"
+    # Built rather than formatted: `%-d` is POSIX-only and raises on Windows,
+    # which is where this is developed.
+    return f"{when.day} {when:%b}"
 
 
 def create_app(
@@ -137,6 +161,7 @@ def create_app(
     templates.env.filters["pct"] = _pct
     templates.env.filters["pct_signed"] = _pct_signed
     templates.env.filters["int_comma"] = _int_comma
+    templates.env.filters["when"] = _when
 
     # ------------------------------------------------------------------ screens
 
@@ -202,6 +227,8 @@ def create_app(
         arm: str = AGENT,
         outcome: str | None = None,
         cause: str | None = None,
+        q: str | None = None,
+        offset: int = 0,
     ):
         summary = load_summary(data_dir)
         ledger = open_ledger(data_dir)
@@ -214,7 +241,8 @@ def create_app(
             "arm": arm,
             "outcome": outcome,
             "cause": cause,
-            "rows": [],
+            "q": q or "",
+            "page": None,
             "arms": [],
             "facets": {"causes": [], "outcomes": []},
         }
@@ -222,7 +250,15 @@ def create_app(
         if ledger is not None:
             try:
                 context |= {
-                    "rows": build_queue(ledger, arm, outcome or None, cause or None),
+                    "page": search_queue(
+                        ledger,
+                        arm,
+                        outcome or None,
+                        cause or None,
+                        query=q,
+                        offset=max(0, offset),
+                        limit=QUEUE_PAGE,
+                    ),
                     "arms": ledger.arms(),
                     "facets": queue_facets(ledger, arm),
                 }
@@ -237,8 +273,12 @@ def create_app(
         if ledger is None:
             raise HTTPException(404, "No run has been generated yet")
 
+        # One open, both reads. Opening twice leaked a handle per request.
         try:
             case = build_case(ledger, payment_id, arm)
+            previous_id, next_id = (
+                neighbours(ledger, arm, payment_id) if case else (None, None)
+            )
         finally:
             ledger.close()
 
@@ -265,6 +305,8 @@ def create_app(
                 "summary": load_summary(data_dir),
                 "case": case,
                 "explanation": explanation,
+                "previous_id": previous_id,
+                "next_id": next_id,
             },
         )
 

@@ -725,6 +725,57 @@
   font-size: var(--fs-sm);
 }
 
+.filters .input {
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px var(--s2);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  min-width: 20ch;
+}
+
+.filters .input::placeholder {
+  color: var(--faint);
+}
+
+.filters .input:focus-visible,
+.filters select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+   Pager
+
+   Present only when there is somewhere to go. The ends are rendered as disabled
+   controls rather than removed, so the row does not reflow as you page through
+   it and the position readout stays in one place.
+   --------------------------------------------------------------------------- */
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  border-top: 1px solid var(--border);
+}
+
+.pager__position {
+  margin: 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.button--disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
 .link-row {
   cursor: pointer;
 }
@@ -1419,12 +1470,31 @@ input[type="range"]::-moz-range-thumb {
   opacity: 0.55;
 }
 
-/* Slightly tighter than the page scoreboard: these are secondary readings of
-   figures already stated above, and should not compete with them. */
-.stats--replay {
-  margin: 0;
+/* A readout, not a second scoreboard. Borderless and lighter than the tiles at
+   the top of the page: these figures belong to the moment on the slider, and
+   giving them the same weight as the run totals made the page read as though it
+   were saying everything twice. */
+.replay__readout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--s4);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border);
 }
 
-.stats--replay .stat__value {
-  font-size: var(--fs-xl);
+.replay__figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  min-width: 0;
+}
+
+.replay__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text);
 }
