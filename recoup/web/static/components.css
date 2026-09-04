@@ -715,14 +715,37 @@
   gap: var(--s2);
 }
 
+/* Native selects render as an operating-system control, which is the single
+   loudest "this is an admin panel" signal on a dense screen. Stripped to the same
+   shape as the text input beside them, with the disclosure drawn as a background
+   so no wrapper element is needed. */
 .filters select {
-  background: var(--raised);
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--raised);
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right 12px center, right 7px center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 4px var(--s2);
+  padding: 4px var(--s5) 4px var(--s2);
   font-family: inherit;
   font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.filters select:hover {
+  border-color: var(--border-strong);
+}
+
+/* The list itself is drawn by the browser, so its colours have to be set
+   explicitly or a dark page opens a white menu. */
+.filters select option {
+  background: var(--surface);
+  color: var(--text);
 }
 
 .filters .input {
@@ -774,6 +797,12 @@
   opacity: 0.35;
   cursor: default;
   pointer-events: none;
+}
+
+/* A column that is mostly ₹0 — every payment that recovered nothing — should not
+   pull the eye harder than the figures that are not zero. */
+.money--zero {
+  color: var(--faint);
 }
 
 .link-row {
@@ -1442,14 +1471,57 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* The curve. Stretched to the card width, so it reads as a timeline rather than
-   as a chart with its own axes — the slider below it is the axis. */
+   as a chart with its own axes — the slider above it is the time axis. Only the
+   vertical scale needs stating, and it is stated once. */
+.replay__chart {
+  position: relative;
+  padding-right: 5.5rem;
+  margin-bottom: var(--s4);
+}
+
 .replay__curve {
   display: block;
   width: 100%;
   height: 10rem;
-  margin-bottom: var(--s4);
   overflow: visible;
 }
+
+.replay__grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.replay__grid--base {
+  stroke: var(--border-strong);
+}
+
+/* Outside the SVG: `preserveAspectRatio="none"` would stretch any text inside it
+   horizontally. Absolutely positioned so the labels line up with the rules
+   without a second layout pass. */
+.replay__scale {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 10rem;
+  width: 5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-left: var(--s2);
+  text-align: left;
+}
+
+.replay__tick {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.replay__tick:first-child { transform: translateY(-0.35em); }
+.replay__tick:last-child  { transform: translateY(0.35em); }
 
 .replay__area {
   fill: var(--accent-wash);
@@ -1497,4 +1569,107 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: -0.02em;
   line-height: 1.2;
   color: var(--text);
+}
+
+/* ---------------------------------------------------------------------------
+   Skip link
+
+   Off-screen until focused. The rail carries six links, so without this every
+   keyboard reader traverses the whole navigation before the content, on every
+   page.
+   --------------------------------------------------------------------------- */
+
+.skip {
+  position: absolute;
+  left: var(--s4);
+  top: -3rem;
+  z-index: 100;
+  padding: var(--s2) var(--s4);
+  background: var(--accent);
+  color: #06231d;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  transition: top 0.15s ease;
+}
+
+.skip:focus {
+  top: var(--s3);
+}
+
+/* ---------------------------------------------------------------------------
+   Selected row
+
+   The queue's keyboard cursor. A left edge rather than a fill, so a selected row
+   still reads its own outcome colour and the marker does not fight the tags.
+   --------------------------------------------------------------------------- */
+
+.table tbody tr[data-selected="true"] {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+   Shortcuts
+
+   The keys, on the page. A product whose shortcuts are documented only in a
+   README has shortcuts nobody uses.
+   --------------------------------------------------------------------------- */
+
+.shortcuts {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: var(--s4);
+}
+
+.shortcuts__panel {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: var(--s5);
+  min-width: min(26rem, 100%);
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.shortcuts__head {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  margin-bottom: var(--s4);
+}
+
+.shortcuts__list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s2) var(--s4);
+  margin: 0;
+  align-items: baseline;
+}
+
+.shortcuts__list dt {
+  white-space: nowrap;
+}
+
+.shortcuts__list dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 1px 5px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--raised);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text);
+  text-align: center;
 }

@@ -88,14 +88,29 @@
 
     {# The recovery curve, with a marker at the scrub position. Drawn from the
        same frames the numbers come from, so the line and the figures cannot
-       disagree. #}
-    <svg class="replay__curve" id="replay-curve" viewBox="0 0 1000 160"
-         preserveAspectRatio="none" role="img"
-         aria-label="Money recovered over the thirty-day run">
-      <path id="replay-area" class="replay__area" d=""></path>
-      <path id="replay-line" class="replay__line" d=""></path>
-      <line id="replay-marker" class="replay__marker" x1="0" y1="0" x2="0" y2="160"></line>
-    </svg>
+       disagree.
+
+       Labels are HTML rather than SVG text: the viewBox is stretched to the card
+       width with `preserveAspectRatio="none"`, which would distort any glyph
+       inside it. Horizontal rules survive that unharmed, so the gridlines stay in
+       the SVG and only the numbers sit outside. #}
+    <div class="replay__chart">
+      <svg class="replay__curve" id="replay-curve" viewBox="0 0 1000 160"
+           preserveAspectRatio="none" role="img"
+           aria-label="Money recovered over the thirty-day run">
+        <line class="replay__grid" x1="0" y1="8" x2="1000" y2="8"></line>
+        <line class="replay__grid" x1="0" y1="84" x2="1000" y2="84"></line>
+        <line class="replay__grid replay__grid--base" x1="0" y1="160" x2="1000" y2="160"></line>
+        <path id="replay-area" class="replay__area" d=""></path>
+        <path id="replay-line" class="replay__line" d=""></path>
+        <line id="replay-marker" class="replay__marker" x1="0" y1="0" x2="0" y2="160"></line>
+      </svg>
+      <div class="replay__scale" aria-hidden="true">
+        <span class="replay__tick">{{ agent.recovered_paise | rupees }}</span>
+        <span class="replay__tick">{{ (agent.recovered_paise // 2) | rupees }}</span>
+        <span class="replay__tick">&#8377;0</span>
+      </div>
+    </div>
 
     {# Deliberately not the scoreboard again. At "Now" this row would otherwise
        repeat three of the five figures directly above it, which is what made the
@@ -392,6 +407,12 @@
   // Reduced motion gets the scrubber without the animation: dragging is the
   // reader's own choice, autoplay is ours.
   if (reduceMotion) play.hidden = true;
+
+  // Space plays and pauses, the one key everyone tries on a transport control.
+  window.recoupKeys = function (event) {
+    if (event.key === " ") { timer ? stop() : begin(); return true; }
+    return false;
+  };
 
   render(rows.length - 1);
   card.hidden = false;
