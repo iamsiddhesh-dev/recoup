@@ -176,7 +176,12 @@ A hosted dashboard behind a login that a reader cannot open is worse evidence th
 file they already have. Adding Langfuse would have meant an external dependency, a network
 call in the hot path, and a second source of truth about what the model was asked.
 
-**What is genuinely lost:** aggregate latency and token dashboards across many runs. At four
+The **AI Calls** screen is what that decision produced: the cache rendered as a trace, with
+every prompt and response in full, and — the part a hosted tool could not do — each output
+re-validated on load rather than reported from a log. A stored "0 rejected" proves nothing.
+Recomputing it proves the check still runs.
+
+**What is genuinely lost:** aggregate latency and token dashboards across many runs. At five
 calls per run that is not a problem this project has.
 
 ## Resend, and any real outbound message

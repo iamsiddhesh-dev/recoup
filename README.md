@@ -196,12 +196,15 @@ so a judge clicking through ten cases would spend half the daily allowance on a 
 screen — and two visits to the same case could disagree with each other.
 
 Responses are content-addressed and **committed to `cache/llm/`**, so the reported numbers
-reproduce on a clean clone with no key and no network. Keys are only needed to regenerate
+reproduce on a clean clone with no key and no network. The **AI Calls** screen renders that
+directory: every call, its exact prompt and response, and each output put back through the
+same validator the run used — so the accept and reject counts are recomputed as you look at
+them rather than remembered. Keys are only needed to regenerate
 the cache after changing a prompt.
 
 ## The product
 
-Six screens, server-rendered, hand-authored design system, no build step.
+Seven screens, server-rendered, hand-authored design system, no build step.
 
 | Screen | What it is for |
 |---|---|
@@ -211,6 +214,7 @@ Six screens, server-rendered, hand-authored design system, no build step.
 | **Policy Studio** | Change a cost, a cap or a quiet-hour window, re-run the real evaluation, see the number move |
 | **Audit & Refusals** | The ledger, its digest verified live, and the 903 actions compliance refused, grouped by rule |
 | **Experiment** | Arms table, the ablation, and the sensitivity tornado |
+| **AI Calls** | Every model call in full — prompt and response — with each output re-validated on load |
 
 ## Quickstart
 
@@ -256,7 +260,7 @@ recoup/
 │  └─ llm/      client with a fallback chain · classifier · copywriter
 ├─ ledger/      append-only events, deterministic replay
 ├─ eval/        arms · runner · metrics · sensitivity · store
-└─ web/         FastAPI + Jinja2, six screens
+└─ web/         FastAPI + Jinja2, seven screens
 ```
 
 - [FAILURES.md](FAILURES.md) — eight things this project got wrong, how each was caught,
