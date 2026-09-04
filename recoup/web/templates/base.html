@@ -27,6 +27,11 @@
   <link rel="stylesheet" href="/static/components.css">
 </head>
 <body>
+{# First tab stop on every screen. The rail is six links deep, so without this a
+   keyboard reader traverses the whole navigation before reaching the content, on
+   every single page. #}
+<a class="skip" href="#content">Skip to content</a>
+
 <div class="shell">
 
   <nav class="rail">
@@ -88,7 +93,7 @@
       {% endif %}
     </header>
 
-    <main class="content">
+    <main class="content" id="content" tabindex="-1">
       {% block content %}{% endblock %}
     </main>
   </div>
@@ -113,7 +118,89 @@
   }
 
   applyStoredTheme();
+
+  // ---------------------------------------------------------------------
+  // Keyboard
+  //
+  // A control room is operated, and a judge reading this repo will try the
+  // obvious keys. Deliberately few, and none of them shadow a browser shortcut:
+  // everything here is a bare key, ignored the moment focus is in a field.
+  // ---------------------------------------------------------------------
+  (function () {
+    const GO_TO = { c: "/", q: "/queue", s: "/studio", a: "/audit", e: "/experiment", i: "/ai" };
+    let awaitingDestination = false;
+
+    function typing(el) {
+      return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+    }
+
+    function click(selector) {
+      const el = document.querySelector(selector);
+      if (el) { el.click(); return true; }
+      return false;
+    }
+
+    document.addEventListener("keydown", event => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.key === "Escape") {
+        awaitingDestination = false;
+        if (typing(document.activeElement)) document.activeElement.blur();
+        document.getElementById("shortcuts")?.setAttribute("hidden", "");
+        return;
+      }
+
+      if (typing(document.activeElement)) return;
+
+      // `g` then a letter, the convention every developer tool shares.
+      if (awaitingDestination) {
+        awaitingDestination = false;
+        const href = GO_TO[event.key];
+        if (href) { event.preventDefault(); location.href = href; }
+        return;
+      }
+      if (event.key === "g") { awaitingDestination = true; return; }
+
+      if (event.key === "/") {
+        const search = document.getElementById("q");
+        if (search) { event.preventDefault(); search.focus(); search.select(); }
+        return;
+      }
+
+      if (event.key === "?") {
+        event.preventDefault();
+        const panel = document.getElementById("shortcuts");
+        if (panel) panel.hidden = !panel.hidden;
+        return;
+      }
+
+      // Screen-specific keys, provided by whichever page defines them.
+      if (window.recoupKeys && window.recoupKeys(event)) event.preventDefault();
+    });
+  })();
 </script>
+
+{# The list of keys, on the page rather than in a README. Hidden until asked for. #}
+<div class="shortcuts" id="shortcuts" hidden>
+  <div class="shortcuts__panel">
+    <div class="shortcuts__head">Keyboard</div>
+    <dl class="shortcuts__list">
+      <dt><kbd>g</kbd> <kbd>c</kbd></dt><dd>Control Room</dd>
+      <dt><kbd>g</kbd> <kbd>q</kbd></dt><dd>Recovery Queue</dd>
+      <dt><kbd>g</kbd> <kbd>s</kbd></dt><dd>Policy Studio</dd>
+      <dt><kbd>g</kbd> <kbd>a</kbd></dt><dd>Audit &amp; Refusals</dd>
+      <dt><kbd>g</kbd> <kbd>e</kbd></dt><dd>Experiment</dd>
+      <dt><kbd>g</kbd> <kbd>i</kbd></dt><dd>AI Calls</dd>
+      <dt><kbd>j</kbd> / <kbd>k</kbd></dt><dd>Move down / up the queue</dd>
+      <dt><kbd>Enter</kbd></dt><dd>Open the selected payment</dd>
+      <dt><kbd>[</kbd> / <kbd>]</kbd></dt><dd>Larger / smaller case</dd>
+      <dt><kbd>Space</kbd></dt><dd>Play or pause the replay</dd>
+      <dt><kbd>/</kbd></dt><dd>Search</dd>
+      <dt><kbd>?</kbd></dt><dd>This list</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Close</dd>
+    </dl>
+  </div>
+</div>
 {% block scripts %}{% endblock %}
 </body>
 </html>
