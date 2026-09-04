@@ -372,6 +372,102 @@ class QueueRow:
         return self.recovered_paise - self.cost_paise
 
 
+@dataclass
+class QueuePage:
+    """One page of the queue, and enough context to say what is off it."""
+
+    rows: list[QueueRow]
+    total: int
+    offset: int
+    limit: int
+
+    @property
+    def shown(self) -> int:
+        return len(self.rows)
+
+    @property
+    def first(self) -> int:
+        return self.offset + 1 if self.rows else 0
+
+    @property
+    def last(self) -> int:
+        return self.offset + self.shown
+
+    @property
+    def has_more(self) -> bool:
+        return self.last < self.total
+
+    @property
+    def has_previous(self) -> bool:
+        return self.offset > 0
+
+    @property
+    def next_offset(self) -> int:
+        return self.offset + self.limit
+
+    @property
+    def previous_offset(self) -> int:
+        return max(0, self.offset - self.limit)
+
+
+def search_queue(
+    ledger: Ledger,
+    arm: str,
+    outcome: str | None = None,
+    cause: str | None = None,
+    query: str | None = None,
+    offset: int = 0,
+    limit: int = 100,
+) -> QueuePage:
+    """A page of the queue, with the total it came from.
+
+    The queue used to render the largest 200 and stop. On this run that is 200 of
+    1,605 — so 87% of the failures existed in the ledger and could not be opened,
+    and the unreachable ones were the small-value cases, which is exactly where
+    "the agent deliberately did nothing" lives. Hiding the evidence for a headline
+    claim behind an invisible cap is worse than showing a long list.
+    """
+    matches = build_queue(ledger, arm, outcome, cause, limit=0)
+
+    if query:
+        needle = query.strip().lower()
+        matches = [
+            row
+            for row in matches
+            if needle in row.payment_id.lower()
+            or needle in (row.cause or "").lower()
+            or needle in row.method.lower()
+            or needle in row.reason.lower()
+        ]
+
+    return QueuePage(
+        rows=matches[offset : offset + limit],
+        total=len(matches),
+        offset=offset,
+        limit=limit,
+    )
+
+
+def neighbours(ledger: Ledger, arm: str, payment_id: str) -> tuple[str | None, str | None]:
+    """The payments either side of this one, in the queue's own order.
+
+    Largest-amount-first, matching what the queue shows, so stepping through cases
+    walks down the money rather than through payment ids. Without this, reading a
+    second case means going back to the queue and finding your place again — which
+    is where most people stop after one.
+    """
+    order = [row.payment_id for row in build_queue(ledger, arm, limit=0)]
+    try:
+        index = order.index(payment_id)
+    except ValueError:
+        return None, None
+
+    return (
+        order[index - 1] if index > 0 else None,
+        order[index + 1] if index + 1 < len(order) else None,
+    )
+
+
 def build_queue(
     ledger: Ledger,
     arm: str,
@@ -384,6 +480,8 @@ def build_queue(
     A single ordered scan rather than a query per payment. The ledger is an event
     stream, so N+1 queries would be the obvious mistake here and would turn a
     page load into thousands of round trips.
+
+    `limit=0` means no cap, which is what the paging wrapper wants.
     """
     rows: dict[str, QueueRow] = {}
 
@@ -436,7 +534,7 @@ def build_queue(
     # Largest first: the money is what a reader is scanning for, and a queue
     # ordered by payment id is a queue nobody reads twice.
     selected.sort(key=lambda r: -r.amount)
-    return selected[:limit]
+    return selected if limit == 0 else selected[:limit]
 
 
 # The shapes worth explaining. Each is a different way a payment can end, so the
