@@ -1299,3 +1299,132 @@ input[type="range"]::-moz-range-thumb {
   left: 0;
   color: var(--accent);
 }
+
+/* ---------------------------------------------------------------------------
+   Replay
+
+   The run as it happened, scrubbable. The whole point is that it feels like a
+   thing you can move rather than a chart you can only look at, so the track is
+   generous, the thumb is large enough to grab, and the numbers update on the
+   same frame as the marker.
+   --------------------------------------------------------------------------- */
+
+.replay__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-bottom: var(--s4);
+}
+
+.button--play {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+.button--play:hover {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.replay__clock {
+  flex: 0 0 auto;
+  min-width: 12ch;
+  text-align: right;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The track. Styled per-engine because range inputs have no shared internals. */
+.replay__range {
+  flex: 1 1 auto;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 1.5rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.replay__range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.replay__range::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.replay__range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--accent-dim);
+}
+
+.replay__range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.replay__range:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius);
+}
+
+/* The curve. Stretched to the card width, so it reads as a timeline rather than
+   as a chart with its own axes — the slider below it is the axis. */
+.replay__curve {
+  display: block;
+  width: 100%;
+  height: 10rem;
+  margin-bottom: var(--s4);
+  overflow: visible;
+}
+
+.replay__area {
+  fill: var(--accent-wash);
+}
+
+.replay__line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+
+.replay__marker {
+  stroke: var(--text);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.55;
+}
+
+/* Slightly tighter than the page scoreboard: these are secondary readings of
+   figures already stated above, and should not compete with them. */
+.stats--replay {
+  margin: 0;
+}
+
+.stats--replay .stat__value {
+  font-size: var(--fs-xl);
+}
