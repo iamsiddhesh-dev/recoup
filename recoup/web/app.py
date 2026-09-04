@@ -34,6 +34,7 @@ from recoup.eval import run_all
 from recoup.eval.sensitivity import load as load_sweep
 from recoup.eval.store import load_explanations, load_summary, open_ledger
 from recoup.money import rupees
+from recoup.web.aicalls import build_ai_calls
 from recoup.web.jobs import JobRegistry
 from recoup.web.sink import WebhookSink
 from recoup.web.studio import KNOBS
@@ -68,6 +69,7 @@ NAV = [
         "icon": "⇄",
         "built": True,
     },
+    {"key": "ai", "label": "AI Calls", "href": "/ai", "icon": "◇", "built": True},
 ]
 
 BASELINE = "naive_baseline"
@@ -244,6 +246,38 @@ def create_app(
                 "summary": load_summary(data_dir),
                 "case": case,
                 "explanation": explanation,
+            },
+        )
+
+    @app.get("/ai")
+    async def ai_calls(request: Request):
+        """Every model call in the run, re-checked on load.
+
+        The accept and reject counts are recomputed here rather than read from a
+        record of the run, so this page shows whether the validators still hold
+        rather than whether they once did.
+        """
+        ledger = open_ledger(data_dir)
+
+        facts_by_id: dict = {}
+        if ledger is not None:
+            try:
+                for payment_id in load_explanations(data_dir):
+                    case = build_case(ledger, payment_id, AGENT)
+                    if case is not None:
+                        facts_by_id[payment_id] = case_facts(case)
+            finally:
+                ledger.close()
+
+        return templates.TemplateResponse(
+            request,
+            "ai.html",
+            {
+                "request": request,
+                "nav": NAV,
+                "active": "ai",
+                "summary": load_summary(data_dir),
+                "view": build_ai_calls(facts_by_id=facts_by_id),
             },
         )
 

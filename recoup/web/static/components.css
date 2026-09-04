@@ -1147,3 +1147,155 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.6;
   color: var(--text);
 }
+
+/* ---------------------------------------------------------------------------
+   Refusals
+
+   Model output that was generated and then thrown away. Set in the desaturated
+   refusal colour rather than an error red: discarding unsafe copy is the system
+   working, not failing.
+   --------------------------------------------------------------------------- */
+
+.refusals {
+  margin-top: var(--s4);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--refused);
+  border-radius: var(--radius);
+  background: var(--raised);
+  padding: var(--s3);
+}
+
+.refusals__head {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: var(--s2);
+}
+
+.refusal {
+  display: flex;
+  gap: var(--s3);
+  align-items: baseline;
+  padding: var(--s1) 0;
+  font-size: var(--fs-sm);
+}
+
+.refusal__what { color: var(--text); flex: 0 0 auto; }
+.refusal__why  { color: var(--muted); }
+
+/* ---------------------------------------------------------------------------
+   Disclosure
+
+   Full prompts and responses are long and most readers do not want them open.
+   They must still be one click away and present in the page source, because
+   "here is exactly what we asked" is the claim this screen exists to support.
+   --------------------------------------------------------------------------- */
+
+.disclosure {
+  margin-top: var(--s4);
+  border-top: 1px solid var(--border);
+}
+
+.disclosure__summary {
+  cursor: pointer;
+  padding: var(--s3) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  list-style: none;
+}
+
+.disclosure__summary::-webkit-details-marker { display: none; }
+
+.disclosure__summary::before {
+  content: "▸ ";
+  color: var(--accent);
+}
+
+.disclosure[open] .disclosure__summary::before { content: "▾ "; }
+
+.disclosure__summary:hover { color: var(--text); }
+
+.disclosure__body { padding-top: var(--s3); }
+
+/* ---------------------------------------------------------------------------
+   Transcript
+
+   The exact bytes sent and received. Monospace, scrollable, wrapped — a prompt
+   that overflows the page horizontally is a prompt nobody reads.
+   --------------------------------------------------------------------------- */
+
+.transcript + .transcript { margin-top: var(--s3); }
+
+.transcript__label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: var(--s1);
+}
+
+.transcript__label--response { color: var(--accent); }
+
+.transcript__text {
+  margin: 0;
+  max-height: 22rem;
+  overflow: auto;
+  padding: var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--ground);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------
+   Rules
+
+   What each model output was checked against. Present even — especially — when
+   nothing was refused: a count of zero is only meaningful next to the list of
+   things it is zero of.
+   --------------------------------------------------------------------------- */
+
+.rules {
+  margin-top: var(--s4);
+  padding: var(--s3);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--raised);
+}
+
+.rules__head {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: var(--s2);
+}
+
+.rules__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rules__item {
+  position: relative;
+  padding-left: var(--s4);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.rules__item::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}
