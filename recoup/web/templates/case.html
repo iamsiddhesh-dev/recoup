@@ -4,7 +4,21 @@
 {% block heading %}Case detail{% endblock %}
 
 {% block topbar_extra %}
-  <a class="button" href="/queue?arm={{ case.arm }}">← Queue</a>
+  <a class="button" href="/queue?arm={{ case.arm }}">&larr; Queue</a>
+  {# Stepping through cases in the queue's own order — largest first — so reading
+     a second one does not mean going back and finding your place again. #}
+  {% if previous_id %}
+    <a class="button" href="/case/{{ previous_id }}?arm={{ case.arm }}"
+       title="Next largest payment">&uarr; Larger</a>
+  {% else %}
+    <span class="button button--disabled" aria-disabled="true">&uarr; Larger</span>
+  {% endif %}
+  {% if next_id %}
+    <a class="button" href="/case/{{ next_id }}?arm={{ case.arm }}"
+       title="Next smallest payment">&darr; Smaller</a>
+  {% else %}
+    <span class="button button--disabled" aria-disabled="true">&darr; Smaller</span>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
