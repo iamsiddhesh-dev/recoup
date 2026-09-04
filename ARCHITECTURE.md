@@ -294,9 +294,17 @@ deterministic given a seed, identical for every viewer, and frozen once produced
 There is never a reason to throw it away, so there is no invalidation logic to get
 wrong.
 
+The scrubber takes the same argument one step further. `replay.state_at` folds the
+stream up to a timestamp, which is O(events) per call — fine for one moment, wrong
+for a slider that wants two hundred of them faster than a hand can move. So all 200
+frames are folded in a single pass at `demo` time, written to `data/frames.json`
+(16KB), and embedded in the page. Scrubbing is then an array lookup with no request
+in it, which is the difference between a control that feels like an instrument and
+one that feels like a form.
+
 | Screen | Reads | Shows |
 |---|---|---|
-| Control Room | `run.json` | the scoreboard, with the coverage/judgment split stated |
+| Control Room | `run.json` + `frames.json` | the scoreboard, and thirty days replayable on a slider |
 | Recovery Queue | ledger scan | every failure, filterable |
 | Case Detail | `story_of` | timeline, EV arithmetic as a checkable sum, the message sent, the plain-language version |
 | Policy Studio | background job | change a cost, re-run, watch the number move |
@@ -317,6 +325,8 @@ What happens when something is missing, in every case that can arise.
 | A provider 5xx | retried once on the same provider, then the next provider, then fallback |
 | Malformed model output | one salvage attempt at extracting JSON, then `None`, then fallback |
 | No `data/run.db` | screens render an empty state with the command to fix it, not a 500 |
+| No `data/frames.json` | rebuilt from the ledger on load; only the page gets slower |
+| JavaScript disabled | the replay card ships `hidden` and is never revealed; every other figure is server-rendered |
 | No `cache/llm/` | AI Calls says so rather than showing zero |
 | No Razorpay key | the live adapter is never constructed; the simulated one is unaffected |
 | A live key | `TestModeViolation` at construction |
