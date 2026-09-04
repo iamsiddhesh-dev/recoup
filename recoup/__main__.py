@@ -104,6 +104,7 @@ def _demo(args: argparse.Namespace) -> int:
         digests=digests,
     )
 
+    _write_frames(path)
     _write_explanations(path)
 
     print()
@@ -140,6 +141,23 @@ def _sweep(args: argparse.Namespace) -> int:
     print()
     print(f"written to {path}")
     return 0
+
+
+def _write_frames(ledger_file: Path, arm: str = "recoup_agent") -> None:
+    """Precompute the scrubber's frames beside the run.
+
+    Folding the stream costs ~400ms. Once here, never on a page load.
+    """
+    from recoup.eval.store import save_frames
+    from recoup.ledger.events import Ledger
+    from recoup.web.timeline import build_frames, to_payload
+
+    with Ledger(ledger_file) as ledger:
+        frames = build_frames(ledger, arm)
+
+    if frames:
+        save_frames(to_payload(frames))
+        print(f"replay: {len(frames)} frames across {frames[-1].day:.0f} days")
 
 
 def _write_explanations(ledger_file: Path, arm: str = "recoup_agent") -> None:

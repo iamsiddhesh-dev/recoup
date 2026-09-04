@@ -33,6 +33,7 @@ DEFAULT_DIR = Path("data")
 LEDGER_NAME = "run.db"
 SUMMARY_NAME = "run.json"
 EXPLANATIONS_NAME = "explanations.json"
+FRAMES_NAME = "frames.json"
 
 
 @dataclass
@@ -150,6 +151,27 @@ def load_explanations(directory: str | Path = DEFAULT_DIR) -> dict[str, dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def save_frames(payload: dict, directory: str | Path = DEFAULT_DIR) -> Path:
+    """The scrubber's frames, precomputed with the run they describe.
+
+    Folding the event stream into frames takes about 400ms. That is nothing once,
+    and far too much on every page load of the busiest screen — so it happens here,
+    with the rest of the run, and the control room reads the answer.
+    """
+    path = Path(directory) / FRAMES_NAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, separators=(",", ":")) + "\n", encoding="utf-8")
+    return path
+
+
+def load_frames(directory: str | Path = DEFAULT_DIR) -> dict | None:
+    """None rather than empty: the caller can rebuild from the ledger."""
+    path = Path(directory) / FRAMES_NAME
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def clear(directory: str | Path = DEFAULT_DIR) -> None:
-    for name in (LEDGER_NAME, SUMMARY_NAME, EXPLANATIONS_NAME):
+    for name in (LEDGER_NAME, SUMMARY_NAME, EXPLANATIONS_NAME, FRAMES_NAME):
         (Path(directory) / name).unlink(missing_ok=True)
