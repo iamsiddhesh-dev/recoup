@@ -208,7 +208,7 @@ Seven screens, server-rendered, hand-authored design system, no build step.
 
 | Screen | What it is for |
 |---|---|
-| **Control Room** | The scoreboard: at risk, recovered, incremental, cost, net — with the coverage/judgment split stated rather than hidden |
+| **Control Room** | The scoreboard: at risk, recovered, incremental, cost, net — with the coverage/judgment split stated rather than hidden. Scrub or play the thirty days back and watch the money accumulate |
 | **Recovery Queue** | Every failure, filterable by cause, arm and outcome |
 | **Case Detail** | One payment end to end: the timeline, each decision's EV arithmetic as a checkable sum, the options it beat, and the actual message the customer received |
 | **Policy Studio** | Change a cost, a cap or a quiet-hour window, re-run the real evaluation, see the number move |
