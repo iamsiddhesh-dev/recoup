@@ -338,17 +338,53 @@ def test_large_payments_may_be_escalated(gate, builder):
 
 
 def test_escalation_is_capped_per_run(gate, builder, rules):
-    """An agent that escalates everything is not a product."""
-    context = _context(builder, amount=9000000)
+    """An agent that escalates everything is not a product.
 
-    for _ in range(rules.escalation.max_escalations_per_run):
+    A distinct payment each time. Reusing one would now be stopped by the
+    per-payment rule instead, and the test would pass while measuring nothing.
+    """
+    for n in range(rules.escalation.max_escalations_per_run):
+        context = _context(builder, amount=9000000, id=f"pay_{n:05d}")
         chosen, _ = gate.screen([_candidate(ActionKind.ESCALATE_HUMAN)], context)
         gate.note_executed(chosen)
 
-    chosen, vetoes = gate.screen([_candidate(ActionKind.ESCALATE_HUMAN)], context)
+    chosen, vetoes = gate.screen(
+        [_candidate(ActionKind.ESCALATE_HUMAN)],
+        _context(builder, amount=9000000, id="pay_99999"),
+    )
 
     assert chosen is None
     assert vetoes[0].rule == "escalation:run_cap"
+
+
+def test_a_payment_is_only_escalated_once(gate, builder):
+    """Four payments once took twelve human slots each and starved the rest.
+
+    The run cap is a shared pool of fifty. Nothing stopped a single payment
+    drawing from it repeatedly, so 48 of the 50 slots went to four payments.
+    """
+    context = _context(builder, amount=9000000, id="pay_00001")
+    chosen, _ = gate.screen([_candidate(ActionKind.ESCALATE_HUMAN)], context)
+    assert chosen is not None
+
+    builder.note_escalation("pay_00001")
+    again = _context(builder, amount=9000000, id="pay_00001")
+
+    chosen, vetoes = gate.screen([_candidate(ActionKind.ESCALATE_HUMAN)], again)
+
+    assert chosen is None
+    assert vetoes[0].rule == "escalation:already_escalated"
+
+
+def test_escalating_one_payment_does_not_block_another(gate, builder):
+    builder.note_escalation("pay_00001")
+
+    chosen, _ = gate.screen(
+        [_candidate(ActionKind.ESCALATE_HUMAN)],
+        _context(builder, amount=9000000, id="pay_00002"),
+    )
+
+    assert chosen is not None
 
 
 def test_run_caps_reset(gate, builder, rules):

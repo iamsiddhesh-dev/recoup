@@ -10,6 +10,8 @@ A wrong number here is worse than a bug, because it looks like a result.
 
 from __future__ import annotations
 
+from collections import Counter
+
 import pytest
 
 from recoup.agent.config import ComplianceConfig, PolicyConfig
@@ -191,6 +193,41 @@ def test_escalation_respects_its_run_cap(results):
 
     for metrics in results:
         assert metrics.actions_by_kind.get("ESCALATE_HUMAN", 0) <= cap
+
+
+def test_no_payment_is_escalated_twice(ledger):
+    """The run cap alone let four payments take twelve human slots each.
+
+    Escalation records STOPPED and hands the case away, but it also does not
+    *succeed*, and the runner rescheduled anything that had not succeeded. So the
+    same payment came back a minute later and was escalated again, 48 of the 50
+    slots going to four payments while every other case that needed a human got
+    nothing. See FAILURES.md.
+    """
+    for arm in ledger.arms():
+        escalated = Counter(
+            event.payment_id
+            for event in ledger.events(arm=arm)
+            if event.kind is EventKind.EXECUTED
+            and event.data.get("action") == "ESCALATE_HUMAN"
+        )
+        repeated = {pid: n for pid, n in escalated.items() if n > 1}
+        assert not repeated, f"{arm} escalated the same payment more than once: {repeated}"
+
+
+def test_an_escalated_payment_is_not_acted_on_again(ledger):
+    """Handing a case to a human ends the agent's involvement with it."""
+    for arm in ledger.arms():
+        handed_over: set[str] = set()
+        for event in ledger.events(arm=arm):
+            if event.kind is not EventKind.EXECUTED:
+                continue
+            action = event.data.get("action", "")
+            assert event.payment_id not in handed_over, (
+                f"{arm}/{event.payment_id}: {action} after escalation"
+            )
+            if action == "ESCALATE_HUMAN":
+                handed_over.add(event.payment_id)
 
 
 # ---------------------------------------------------------------------------
