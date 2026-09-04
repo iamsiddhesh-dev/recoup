@@ -59,6 +59,8 @@ MAX_CHARS = 700
 
 CHANNELS = ("sms", "whatsapp", "voice", "email")
 
+ESCALATE = "ESCALATE_HUMAN"
+
 # Claims that are simply false when the payment was not recovered. Deliberately
 # specific phrases rather than the word "recovered", which appears legitimately in
 # sentences like "we stopped before spending more than the payment could recover".
@@ -223,6 +225,11 @@ def validate(text: str, facts: CaseFacts) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+def _times(n: int) -> str:
+    """"1 times" is the kind of thing that makes a report look generated."""
+    return f"{n} time" if n == 1 else f"{n} times"
+
+
 def summarise(facts: CaseFacts) -> str:
     """An explanation composed from the facts, with no model involved.
 
@@ -239,27 +246,32 @@ def summarise(facts: CaseFacts) -> str:
         + (f", diagnosed as {cause}." if cause else " and could not be diagnosed.")
     )
 
+    escalated = ESCALATE in facts.actions
+
     if facts.actions:
         did = []
         if facts.attempts:
-            did.append(f"retried it {facts.attempts} time{'s' if facts.attempts > 1 else ''}")
+            did.append(f"retried it {_times(facts.attempts)}")
         if facts.contacts:
             channels = " and ".join(dict.fromkeys(facts.channels)) or "the customer"
-            did.append(
-                f"contacted the customer {facts.contacts} "
-                f"time{'s' if facts.contacts > 1 else ''} by {channels}"
-            )
+            did.append(f"contacted the customer {_times(facts.contacts)} by {channels}")
+        if escalated:
+            did.append("handed it to human review")
         spent = rupees(facts.cost_paise, precise_below=10_000)
         middle = (
             f" The agent {' and '.join(did)}, spending {spent}."
             if did
-            else f" The agent acted {len(facts.actions)} times, spending {spent}."
+            else f" The agent acted {_times(len(facts.actions))}, spending {spent}."
         )
     else:
         middle = " The agent took no action on it."
 
     if facts.recovered:
         closing = f" It was recovered, returning {rupees(facts.recovered_paise)}."
+    elif escalated:
+        # Whether a person then resolved it is outside this system, and the run
+        # does not claim credit for it either way.
+        closing = " The outcome of that review is outside this record."
     elif facts.vetoes:
         rules = ", ".join(dict.fromkeys(facts.vetoes))
         closing = f" It was not recovered. Compliance refused further action under {rules}."
