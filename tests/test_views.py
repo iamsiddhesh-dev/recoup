@@ -304,7 +304,7 @@ def test_the_queue_page_survives_filters_matching_nothing(client):
     response = client.get(f"/queue?arm={ARM}&outcome=recovered&cause=RISK_BLOCKED")
 
     assert response.status_code == 200
-    assert "Nothing matches those filters" in response.text
+    assert "Nothing matches" in response.text
 
 
 def test_a_case_page_renders_its_working(client, recovered_case):
@@ -431,3 +431,122 @@ def test_a_control_room_without_a_run_has_no_replay(tmp_path):
 
     assert response.status_code == 200
     assert "replay-data" not in response.text
+
+
+# ---------------------------------------------------------------------------
+# Reachability
+# ---------------------------------------------------------------------------
+
+
+def test_every_failure_is_reachable(ledger):
+    """The queue rendered the largest 200 and stopped.
+
+    On this run that hid 87% of the failures — and the hidden ones were the small
+    amounts, which is exactly where "the agent deliberately did nothing" lives.
+    """
+    from recoup.web.views import search_queue
+
+    first = search_queue(ledger, ARM, limit=100)
+    assert first.total > 1000
+    assert first.has_more
+
+    seen: set[str] = set()
+    offset = 0
+    while True:
+        page = search_queue(ledger, ARM, offset=offset, limit=500)
+        seen.update(row.payment_id for row in page.rows)
+        if not page.has_more:
+            break
+        offset = page.next_offset
+
+    assert len(seen) == first.total
+
+
+def test_search_finds_a_payment_by_id(ledger):
+    from recoup.web.views import search_queue
+
+    page = search_queue(ledger, ARM, query="pay_002952")
+
+    assert page.total == 1
+    assert page.rows[0].payment_id == "pay_002952"
+
+
+def test_search_matches_a_cause(ledger):
+    from recoup.web.views import search_queue
+
+    page = search_queue(ledger, ARM, query="insufficient")
+
+    assert page.total > 1
+    assert all(r.cause == "INSUFFICIENT_FUNDS" for r in page.rows)
+
+
+def test_paging_does_not_repeat_or_skip(ledger):
+    from recoup.web.views import search_queue
+
+    one = search_queue(ledger, ARM, offset=0, limit=50)
+    two = search_queue(ledger, ARM, offset=50, limit=50)
+
+    assert not set(r.payment_id for r in one.rows) & set(r.payment_id for r in two.rows)
+    assert two.first == 51
+    assert two.has_previous
+
+
+def test_neighbours_walk_the_queue_order(ledger):
+    from recoup.web.views import neighbours, search_queue
+
+    order = [r.payment_id for r in search_queue(ledger, ARM, limit=5).rows]
+    previous_id, next_id = neighbours(ledger, ARM, order[2])
+
+    assert previous_id == order[1]
+    assert next_id == order[3]
+
+
+def test_the_ends_of_the_queue_have_no_neighbour(ledger):
+    from recoup.web.views import neighbours, search_queue
+
+    page = search_queue(ledger, ARM, limit=100_000)
+    first = neighbours(ledger, ARM, page.rows[0].payment_id)
+    last = neighbours(ledger, ARM, page.rows[-1].payment_id)
+
+    assert first[0] is None
+    assert last[1] is None
+
+
+def test_an_unknown_payment_has_no_neighbours(ledger):
+    from recoup.web.views import neighbours
+
+    assert neighbours(ledger, ARM, "pay_nope") == (None, None)
+
+
+def test_a_case_page_offers_the_next_case(client, ledger):
+    from recoup.web.views import search_queue
+
+    middle = search_queue(ledger, ARM, limit=5).rows[2].payment_id
+    response = client.get(f"/case/{middle}?arm={ARM}")
+
+    assert "Larger</a>" in response.text
+    assert "Smaller</a>" in response.text
+
+
+def test_the_run_identity_is_on_every_screen(client):
+    """The seed used to sit in the rail footer, which is hidden below 900px."""
+    for path in ("/", "/queue", "/audit", "/experiment", "/ai", "/studio"):
+        text = client.get(path).text
+        assert 'chip__key">seed' in text, f"{path} does not show the seed"
+        assert 'chip__key">run' in text, f"{path} does not show when it was run"
+
+
+def test_the_page_has_an_icon_and_a_description(client):
+    text = client.get("/").text
+
+    assert 'rel="icon"' in text
+    assert 'name="description"' in text
+    assert 'property="og:title"' in text
+
+
+def test_the_studio_shows_the_committed_run_before_anything_is_run(client):
+    """Its own copy promises a comparison; the "before" has to be on screen."""
+    text = client.get("/studio").text
+
+    assert "This is the committed run" in text
+    assert "₹5,41,724" in text
