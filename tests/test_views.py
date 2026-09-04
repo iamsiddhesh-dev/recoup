@@ -404,3 +404,30 @@ def test_the_ai_calls_page_shows_the_prompts_in_full(client):
 
     assert response.text.count('class="transcript__text"') >= 9
     assert "You explain payment recovery decisions" in response.text
+
+
+def test_the_control_room_carries_its_replay_frames(client):
+    """Precomputed and embedded: scrubbing must not touch the network."""
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'id="replay-data"' in response.text
+    assert "Thirty days, replayed" in response.text
+    assert '"columns"' in response.text
+
+
+def test_the_replay_card_ships_hidden(client):
+    """Progressive enhancement: no half-working slider if the script fails."""
+    response = client.get("/")
+
+    assert '<section class="card" id="replay" hidden>' in response.text
+
+
+def test_a_control_room_without_a_run_has_no_replay(tmp_path):
+    from recoup.web.app import create_app
+
+    client = TestClient(create_app(data_dir=tmp_path / "empty"))
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "replay-data" not in response.text
