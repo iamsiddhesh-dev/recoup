@@ -263,8 +263,10 @@ recoup/
 └─ web/         FastAPI + Jinja2, seven screens
 ```
 
-- [FAILURES.md](FAILURES.md) — eight things this project got wrong, how each was caught,
-  and what changed. The most useful file in the repo.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — the shape, the four boundaries and what enforces
+  each, and where to start reading.
+- [FAILURES.md](FAILURES.md) — ten things this project got wrong, how each was caught, and
+  what changed. The most useful file in the repo.
 - [DECISIONS.md](DECISIONS.md) — why it is built this way, and what was deliberately left
   out.
 - [`config/world.yaml`](config/world.yaml) — every simulator assumption, each tagged
