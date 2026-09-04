@@ -328,7 +328,12 @@ class Runner:
 
         # Failed, still open, still time: reconsider. The policy will propose the
         # next attempt or stop.
-        if not executed.succeeded and when < horizon:
+        #
+        # `terminal` is the important half of that condition. Escalation does not
+        # succeed — the money is not recovered — but it is not an open case
+        # either, and reading only `succeeded` put every escalated payment back on
+        # the timeline a minute later to be escalated again.
+        if not executed.succeeded and not executed.terminal and when < horizon:
             timeline.schedule(
                 min(when + timedelta(minutes=1), horizon),
                 Scheduled(task=Task.RECONSIDER, payment=context.payment),

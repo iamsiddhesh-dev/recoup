@@ -50,6 +50,13 @@ class Execution:
     contacted: bool = False
     detail: str = ""
 
+    # Whether this action ends the agent's involvement. Distinct from `succeeded`,
+    # and the distinction matters: handing a case to a human did not recover the
+    # money, but it is also not a failed attempt to be tried again. Without this
+    # the caller can only see "did not succeed" and will quite reasonably
+    # reschedule — which is exactly what happened. See FAILURES.md.
+    terminal: bool = False
+
 
 class Executor:
     def __init__(
@@ -124,7 +131,7 @@ class Executor:
 
         if action is ActionKind.STOP:
             record(EventKind.STOPPED, reason=decision.reason)
-            return Execution(action=action, at=at, succeeded=False), events
+            return Execution(action=action, at=at, succeeded=False, terminal=True), events
 
         if action is ActionKind.ESCALATE_HUMAN:
             # Humans are outside the system. The agent hands the case over and
@@ -138,8 +145,11 @@ class Executor:
                 detail="handed to human review",
             )
             record(EventKind.STOPPED, reason="escalated to human review")
+            self._context.note_escalation(context.payment.id)
             return (
-                Execution(action=action, at=at, succeeded=False, cost_paise=cost),
+                Execution(
+                    action=action, at=at, succeeded=False, cost_paise=cost, terminal=True
+                ),
                 events,
             )
 
