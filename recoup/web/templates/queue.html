@@ -104,8 +104,13 @@
               </td>
               <td class="num">{{ row.actions }}</td>
               <td class="num">{{ row.contacts }}</td>
-              <td class="money money--muted">{{ row.cost_paise | rupees }}</td>
-              <td class="money {{ 'money--positive' if row.recovered_paise else 'money--muted' }}">
+              {# Most rows recovered nothing and spent almost nothing, so both
+                 columns are largely zeros. Dimming them lets the figures that are
+                 not zero carry the eye down the page. #}
+              <td class="money {{ 'money--muted' if row.cost_paise else 'money--zero' }}">
+                {{ row.cost_paise | rupees }}
+              </td>
+              <td class="money {{ 'money--positive' if row.recovered_paise else 'money--zero' }}">
                 {{ row.recovered_paise | rupees }}
               </td>
             </tr>
@@ -147,4 +152,35 @@
 </section>
 
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// j/k walks the rows, Enter opens. The queue is the one screen with enough rows
+// that reaching for the mouse is the slow way to read it.
+(function () {
+  const rows = [...document.querySelectorAll("tbody tr.link-row")];
+  if (!rows.length) return;
+
+  let index = -1;
+
+  function select(next) {
+    if (index >= 0) rows[index].removeAttribute("data-selected");
+    index = Math.max(0, Math.min(rows.length - 1, next));
+    const row = rows[index];
+    row.setAttribute("data-selected", "true");
+    row.scrollIntoView({ block: "nearest" });
+  }
+
+  window.recoupKeys = function (event) {
+    if (event.key === "j") { select(index + 1); return true; }
+    if (event.key === "k") { select(index - 1); return true; }
+    if (event.key === "Enter" && index >= 0) {
+      rows[index].querySelector("a")?.click();
+      return true;
+    }
+    return false;
+  };
+})();
+</script>
 {% endblock %}
