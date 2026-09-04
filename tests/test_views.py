@@ -550,3 +550,64 @@ def test_the_studio_shows_the_committed_run_before_anything_is_run(client):
 
     assert "This is the committed run" in text
     assert "₹5,41,724" in text
+
+
+# ---------------------------------------------------------------------------
+# Reading it without a mouse
+# ---------------------------------------------------------------------------
+
+
+def test_every_screen_opens_with_a_skip_link(client):
+    """The rail is six links deep before the content starts."""
+    for path in ("/", "/queue", "/audit", "/experiment", "/ai", "/studio"):
+        text = client.get(path).text
+        assert 'class="skip" href="#content"' in text, path
+        assert 'id="content"' in text, path
+
+
+def test_the_shortcuts_are_listed_on_the_page(client):
+    """Shortcuts documented only in a README are shortcuts nobody uses."""
+    text = client.get("/").text
+
+    assert 'id="shortcuts"' in text
+    assert "<kbd>j</kbd>" in text
+    assert "<kbd>?</kbd>" in text
+
+
+def test_the_queue_binds_row_movement(client):
+    text = client.get(f"/queue?arm={ARM}").text
+
+    assert "recoupKeys" in text
+    assert '"j"' in text and '"k"' in text
+
+
+def test_a_case_binds_stepping(client, ledger):
+    from recoup.web.views import search_queue
+
+    middle = search_queue(ledger, ARM, limit=5).rows[2].payment_id
+    text = client.get(f"/case/{middle}?arm={ARM}").text
+
+    assert "recoupKeys" in text
+    assert '"["' in text and '"]"' in text
+
+
+# ---------------------------------------------------------------------------
+# Reading the numbers
+# ---------------------------------------------------------------------------
+
+
+def test_the_recovery_curve_states_its_scale(client):
+    """A curve with no axis is decoration."""
+    text = client.get("/").text
+
+    assert 'class="replay__scale"' in text
+    assert text.count('class="replay__grid') >= 2
+    assert "₹5,41,724" in text
+
+
+def test_zero_money_is_dimmed_in_the_queue(client):
+    """Most rows recovered nothing; the ones that did should carry the eye."""
+    text = client.get(f"/queue?arm={ARM}").text
+
+    assert "money--zero" in text
+    assert "money--positive" in text
