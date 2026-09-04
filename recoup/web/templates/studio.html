@@ -61,7 +61,7 @@
     <div class="card__head">
       <h2 class="card__title">Result</h2>
       <span class="card__note" id="status">
-        {% if job %}{{ job.status }}{% else %}not run yet{% endif %}
+        {% if job %}{{ job.status }}{% else %}committed run{% endif %}
       </span>
     </div>
 
@@ -71,10 +71,43 @@
         <div class="progress__label" id="progress-label"></div>
       </div>
 
-      <div id="result-empty" class="empty">
-        <div class="empty__title">Nothing run in this session yet</div>
-        <p>Move a setting and run it. The table will compare the result against
-           the committed run, arm for arm.</p>
+      {# The committed run, shown before anything is run. The panel used to be an
+         empty box promising a comparison against numbers it did not display, so
+         there was nothing to compare *to* until after you had already run. This
+         is the "before". #}
+      <div id="result-empty">
+        <p class="small dim" style="margin: 0 0 var(--s3)">
+          This is the committed run &mdash; what the settings on the left currently
+          produce. Move one and run it, and this table is replaced by the result
+          with a delta against these figures.
+        </p>
+
+        <div class="table-scroll">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Arm</th>
+                <th class="money">Recovered</th>
+                <th class="money">Cost</th>
+                <th class="money">Net</th>
+                <th class="num">Contacts</th>
+                <th class="num">Refusals</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for arm in baseline_arms %}
+                <tr data-highlight="{{ 'true' if arm.arm == 'recoup_agent' else 'false' }}">
+                  <td class="mono small">{{ arm.arm }}</td>
+                  <td class="money">{{ arm.recovered_paise | rupees }}</td>
+                  <td class="money money--muted">{{ arm.cost_paise | rupees }}</td>
+                  <td class="money">{{ arm.net_paise | rupees }}</td>
+                  <td class="num">{{ arm.contacts }}</td>
+                  <td class="num">{{ arm.vetoes }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div class="table-scroll" id="result-table" hidden>
