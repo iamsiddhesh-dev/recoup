@@ -5,12 +5,12 @@
 
 PY ?= python
 
-.PHONY: setup demo eval reproduce test lint clean
+.PHONY: setup demo eval reproduce sweep test lint clean
 
 setup:  ## install the package and dev dependencies
 	$(PY) -m pip install -e ".[dev]"
 
-demo:  ## run a batch end to end and serve the control room
+demo:  ## run a batch end to end and serve the product
 	$(PY) -m recoup demo
 
 eval:  ## print the arms table: gross, incremental, cost, net, refusals
@@ -18,6 +18,9 @@ eval:  ## print the arms table: gross, incremental, cost, net, refusals
 
 reproduce:  ## regenerate every committed figure from fixed seeds
 	$(PY) -m recoup reproduce
+
+sweep:  ## re-run the evaluation with each assumption moved, and report the swing
+	$(PY) -m recoup sweep
 
 test:
 	$(PY) -m pytest

@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 from recoup import __version__
 
 COMMANDS: dict[str, str] = {
-    "demo": "run a batch end to end and serve the control room",
+    "demo": "run a batch end to end and serve the product",
     "eval": "print the arms table: gross, incremental, cost, net, refusals",
     "reproduce": "regenerate every committed figure from fixed seeds",
     "sweep": "re-run the evaluation with each assumption moved, and report the swing",
