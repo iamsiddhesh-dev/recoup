@@ -18,46 +18,105 @@
   </div>
 {% else %}
 
-{# -- the scoreboard ------------------------------------------------------ #}
-<section class="stats">
-  <div class="stat stat--headline">
-    <span class="label">Incremental recovery</span>
-    <span class="stat__value">{{ incremental | rupees }}</span>
-    <span class="stat__detail">
-      above naive retry &middot; {{ lift | pct_signed }} lift
-    </span>
+{# -- the scoreboard ------------------------------------------------------
+   One card, split. What the run recovered on the left; what that is worth over
+   doing nothing clever on the right. Five equal tiles used to sit here and gave
+   the two halves the same weight as the contact count, which is how a reader
+   ends up quoting the largest number on the screen rather than the true one. #}
+<section class="card hero">
+
+  <div class="hero__main">
+    <div class="hero__eyebrow">
+      <span class="label">Recovered</span>
+      <span class="mono hero__arm">{{ agent.arm }}</span>
+    </div>
+
+    <div class="figure hero__figure">{{ agent.recovered_paise | rupees }}</div>
+
+    <p class="hero__gloss">
+      {{ agent.recovered_count | int_comma }} of {{ summary.observed | int_comma }} failures
+      &middot; {{ agent.money_recovery_rate | pct }} of the
+      {{ summary.at_risk | rupees }} at risk
+    </p>
+
+    <div class="hero__gauge">
+      <div class="bar bar--thick">
+        <div class="bar__fill"
+             style="width: {{ (agent.money_recovery_rate * 100) | round(1) }}%"></div>
+      </div>
+      <div class="hero__gauge-scale">
+        <span>recovered</span>
+        <span>{{ summary.at_risk | rupees }} at risk</span>
+      </div>
+    </div>
+
+    <div class="hero__subs">
+      <div>
+        <span class="label">Spent</span>
+        <span class="mono hero__sub-value">{{ agent.cost_paise | rupees }}</span>
+      </div>
+      <div>
+        <span class="label">Net of cost</span>
+        <span class="mono hero__sub-value">{{ agent.net_paise | rupees }}</span>
+      </div>
+      <div>
+        <span class="label">Contacts</span>
+        <span class="mono hero__sub-value">{{ agent.contacts | int_comma }}</span>
+      </div>
+    </div>
   </div>
 
-  <div class="stat">
-    <span class="label">Recovered</span>
-    <span class="stat__value">{{ agent.recovered_paise | rupees }}</span>
-    <span class="stat__detail">
-      {{ agent.recovered_count }} of {{ summary.observed }} failures
-      &middot; {{ agent.money_recovery_rate | pct }} of money at risk
-    </span>
-  </div>
+  <div class="hero__aside">
+    <span class="label label--accent">Lift over naive retry</span>
+    <div class="figure hero__figure hero__figure--accent">{{ incremental | rupees }}</div>
 
-  <div class="stat">
-    <span class="label">Net of cost</span>
-    <span class="stat__value">{{ agent.net_paise | rupees }}</span>
-    <span class="stat__detail">
-      {{ agent.margin_recovered | rupees }} margin &minus;
-      {{ agent.cost_paise | rupees }} spent
-    </span>
-  </div>
+    {% if not is_agent %}
+      <p class="hero__note">
+        The coverage / judgment split is a property of
+        <span class="mono">{{ AGENT_ARM }}</span>, measured <em>against</em> this
+        arm rather than reported for it.
+        <a href="/experiment#split">See the decomposition &rarr;</a>
+      </p>
+    {% else %}
+    <p class="hero__note">Read as two separate things, because they are earned differently.</p>
 
-  <div class="stat">
-    <span class="label">Customer contacts</span>
-    <span class="stat__value">{{ agent.contacts }}</span>
-    <span class="stat__detail">
-      {{ "%.2f" | format(agent.contacts_per_recovery) }} per recovery
-    </span>
-  </div>
+    <div class="sharebar">
+      <div class="sharebar__coverage"
+           style="flex: {{ (coverage_share * 100) | round(1) }}"></div>
+      <div class="sharebar__judgment"
+           style="flex: {{ (judgment_share * 100) | round(1) }}"></div>
+    </div>
 
-  <div class="stat">
-    <span class="label">Refused by compliance</span>
-    <span class="stat__value">{{ agent.vetoes }}</span>
-    <span class="stat__detail">actions we would not take</span>
+    <div class="legend">
+      <div class="legend__row">
+        <span class="legend__swatch legend__swatch--coverage"></span>
+        <span class="legend__name">Coverage</span>
+        <span class="legend__value mono">{{ coverage | rupees }}</span>
+        <span class="legend__share mono">{{ coverage_share | pct }}</span>
+      </div>
+      <p class="legend__gloss">
+        Contacting customers at all. Any arm that sends messages gets this.
+      </p>
+      <div class="legend__row">
+        <span class="legend__swatch legend__swatch--judgment"></span>
+        <span class="legend__name">Judgment</span>
+        <span class="legend__value mono">{{ judgment | rupees }}</span>
+        <span class="legend__share mono">{{ judgment_share | pct }}</span>
+      </div>
+      <p class="legend__gloss">
+        Which action, which channel, which hour &mdash; and when to stop. This is
+        the policy engine.
+      </p>
+    </div>
+
+    <p class="hero__foot">
+      The comparison that measures judgment is against
+      <span class="mono">{{ contact.arm }}</span>:
+      <span class="mono money--positive">{{ judgment | rupees }}</span> more recovered
+      from <span class="mono">{{ contact.contacts - agent.contacts }}</span> fewer contacts.
+      <a href="/experiment">Full decomposition &rarr;</a>
+    </p>
+    {% endif %}
   </div>
 </section>
 
@@ -66,6 +125,9 @@
 <section class="card" id="replay" hidden>
   <div class="card__head">
     <h2 class="card__title">Thirty days, replayed</h2>
+    {# Which arm is being replayed, stated. The curve and the scoreboard above it
+       must never be able to disagree about that without saying so. #}
+    <span class="chip mono">{{ agent.arm }}</span>
     <span class="card__note">
       every figure below is the run as it stood at that moment, not a projection
     </span>
@@ -83,7 +145,7 @@
 
       <span class="replay__clock mono" id="replay-clock"></span>
 
-      <button class="button" type="button" id="replay-reset">Now</button>
+      <button class="button" type="button" id="replay-reset">End of run</button>
     </div>
 
     {# The recovery curve, with a marker at the scrub position. Drawn from the
@@ -206,8 +268,11 @@
 
   {# -- where the money came from ---------------------------------------- #}
   <section class="card">
-    <div class="card__head">
+    <div class="card__head card__head--stack">
       <h2 class="card__title">How the money came back</h2>
+      <p class="card__sub">
+        {{ agent.recovered_count | int_comma }} recoveries by the action that produced them
+      </p>
     </div>
     <div class="card__body stack">
       {% if recovered_by_action %}
@@ -233,9 +298,12 @@
 
   {# -- what we refused to do -------------------------------------------- #}
   <section class="card">
-    <div class="card__head">
+    <div class="card__head card__head--stack">
       <h2 class="card__title">What we refused to do</h2>
-      <span class="card__note">a deliverable, not an error log</span>
+      <p class="card__sub">
+        {{ agent.vetoes | int_comma }} actions the compliance gate vetoed &mdash;
+        a deliverable, not an error log
+      </p>
     </div>
     <div class="card__body stack">
       {% if top_vetoes %}
@@ -256,25 +324,12 @@
         <p class="dim">Nothing was refused in this run.</p>
       {% endif %}
     </div>
+    <div class="card__link">
+      <a href="/audit">Every rule, and the ones that never fired &rarr;</a>
+    </div>
   </section>
 
 </div>
-
-{# -- the honest reading ------------------------------------------------- #}
-<section class="banner">
-  <div>
-    <div class="banner__title">Read the headline carefully</div>
-    <p class="dim" style="margin: var(--s1) 0 0">
-      Most of the lift over <span class="mono">{{ baseline.arm }}</span> is coverage
-      rather than cleverness: the baseline only retries, and only a quarter of
-      failures can be retried at all. The comparison that measures judgment is
-      against <span class="mono">{{ contact.arm }}</span> &mdash;
-      <span class="money money--positive">{{ (agent.recovered_paise - contact.recovered_paise) | rupees }}</span>
-      more recovered from
-      <span class="mono">{{ contact.contacts - agent.contacts }}</span> fewer contacts.
-    </p>
-  </div>
-</section>
 
 {% endif %}
 {% endblock %}

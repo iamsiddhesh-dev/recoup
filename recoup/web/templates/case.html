@@ -3,122 +3,39 @@
 {% block title %}{{ case.payment_id }} · Recoup{% endblock %}
 {% block heading %}Case detail{% endblock %}
 
-{% block topbar_extra %}
-  <a class="button" href="/queue?arm={{ case.arm }}">&larr; Queue</a>
-  {# Stepping through cases in the queue's own order — largest first — so reading
-     a second one does not mean going back and finding your place again. #}
-  {% if previous_id %}
-    <a class="button" href="/case/{{ previous_id }}?arm={{ case.arm }}"
-       title="Next largest payment">&uarr; Larger</a>
-  {% else %}
-    <span class="button button--disabled" aria-disabled="true">&uarr; Larger</span>
-  {% endif %}
-  {% if next_id %}
-    <a class="button" href="/case/{{ next_id }}?arm={{ case.arm }}"
-       title="Next smallest payment">&darr; Smaller</a>
-  {% else %}
-    <span class="button button--disabled" aria-disabled="true">&darr; Smaller</span>
-  {% endif %}
-{% endblock %}
-
 {% block content %}
 
-{# -- what this payment is ------------------------------------------------ #}
-<section class="card">
-  <div class="card__head">
-    <h2 class="card__title mono">{{ case.payment_id }}</h2>
-    {% if case.outcome == "recovered" %}
-      <span class="tag tag--recovered">recovered</span>
-    {% elif case.outcome == "stopped" %}
-      <span class="tag tag--refused">stopped</span>
+{# Navigation sits here rather than in the top bar. Three buttons, a chip and a
+   theme toggle beside a two-line title left the header with nowhere to breathe,
+   and "where am I" belongs next to the content it describes. #}
+<div class="crumbs">
+  <div class="crumbs__trail">
+    <a href="/queue?arm={{ case.arm }}">Recovery Queue</a>
+    <span class="crumbs__sep" aria-hidden="true">/</span>
+    <span class="mono">{{ case.payment_id }}</span>
+  </div>
+
+  {# Stepping through cases in the queue's own order — largest first — so reading
+     a second one does not mean going back and finding your place again. #}
+  <div class="crumbs__actions">
+    {% if previous_id %}
+      <a class="button" href="/case/{{ previous_id }}?arm={{ case.arm }}"
+         title="Next largest payment">&uarr; Larger</a>
     {% else %}
-      <span class="tag tag--risk">open</span>
+      <span class="button button--disabled" aria-disabled="true">&uarr; Larger</span>
     {% endif %}
-    <span class="card__note mono">{{ case.arm }}</span>
-  </div>
-
-  <div class="card__body">
-    <div class="facts">
-      <div class="fact">
-        <span class="label">Amount</span>
-        <span class="fact__value">{{ case.amount | rupees }}</span>
-      </div>
-      <div class="fact">
-        <span class="label">Method</span>
-        <span class="fact__value">{{ case.method }}</span>
-      </div>
-      <div class="fact">
-        <span class="label">Reported reason</span>
-        <span class="fact__value" style="font-size: var(--fs-base)">{{ case.reason }}</span>
-      </div>
-      <div class="fact">
-        <span class="label">Cause</span>
-        <span class="fact__value" style="font-size: var(--fs-base)">
-          {% if case.cause %}
-            {{ case.cause }}
-            <span class="dim small">{{ case.confidence | pct }}</span>
-          {% else %}
-            <span class="dim">unclassified</span>
-          {% endif %}
-        </span>
-      </div>
-      <div class="fact">
-        <span class="label">Customer</span>
-        <span class="fact__value" style="font-size: var(--fs-base)">
-          {{ case.customer_id or "—" }}
-        </span>
-      </div>
-      <div class="fact">
-        <span class="label">Spent</span>
-        <span class="fact__value">{{ case.cost_paise | rupees }}</span>
-      </div>
-      <div class="fact">
-        <span class="label">Recovered</span>
-        <span class="fact__value {{ 'money--positive' if case.recovered_paise else 'money--muted' }}">
-          {{ case.recovered_paise | rupees }}
-        </span>
-      </div>
-    </div>
-
-    {% if case.rule %}
-      <p class="small dim" style="margin: var(--s4) 0 0">
-        Classified by <span class="mono">{{ case.rule }}</span>
-        ({{ case.resolution }}).
-        {% if case.resolution == "fallback" %}
-          The deterministic rules had no mapping for these symptoms, so this came
-          from the model fallback — capped in confidence so it can never outrank a
-          documented rule.
-        {% endif %}
-      </p>
+    {% if next_id %}
+      <a class="button" href="/case/{{ next_id }}?arm={{ case.arm }}"
+         title="Next smallest payment">&darr; Smaller</a>
+    {% else %}
+      <span class="button button--disabled" aria-disabled="true">&darr; Smaller</span>
     {% endif %}
+    <a class="button button--primary" href="/queue?arm={{ case.arm }}">Back to queue</a>
   </div>
-</section>
+</div>
 
-{# -- the plain-language version ------------------------------------------- #}
-{% if explanation %}
-<section class="card">
-  <div class="card__head">
-    <h2 class="card__title">In short</h2>
-    <span class="topbar__spacer"></span>
-    <span class="tag {{ 'tag--recovered' if explanation.source == 'generated' else 'tag--neutral' }}">
-      {{ explanation.source }}
-    </span>
-  </div>
-  <div class="card__body">
-    <p class="explanation">{{ explanation.text }}</p>
-    <p class="small dim" style="margin: var(--s3) 0 0">
-      {% if explanation.source == "generated" %}
-        Written by a model from the record below, and checked against it: an
-        explanation using any figure not in this case's own facts, naming a channel
-        that was not used, or claiming a recovery that did not happen is discarded
-        rather than shown. The model reads the decisions; it does not make them.
-      {% else %}
-        Composed from this case's own facts. No model was involved.
-      {% endif %}
-    </p>
-  </div>
-</section>
-{% endif %}
+<div class="case">
+<div class="case__story">
 
 {# -- the story ----------------------------------------------------------- #}
 <section class="card">
@@ -212,6 +129,110 @@
     </div>
   </div>
 </section>
+</div>
+
+{# The sidebar sticks: the timeline beside it is long, and the amount and
+   outcome are what every line of it is about. Scrolling the story away from
+   the figure it explains is how a reader loses the thread. #}
+<aside class="case__aside">
+{# -- what this payment is ------------------------------------------------ #}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title mono">{{ case.payment_id }}</h2>
+    {% if case.outcome == "recovered" %}
+      <span class="tag tag--recovered">recovered</span>
+    {% elif case.outcome == "stopped" %}
+      <span class="tag tag--refused">stopped</span>
+    {% else %}
+      <span class="tag tag--risk">open</span>
+    {% endif %}
+    <span class="card__note mono">{{ case.arm }}</span>
+  </div>
+
+  <div class="card__body">
+    <div class="facts">
+      <div class="fact">
+        <span class="label">Amount</span>
+        <span class="fact__value">{{ case.amount | rupees }}</span>
+      </div>
+      <div class="fact">
+        <span class="label">Method</span>
+        <span class="fact__value">{{ case.method }}</span>
+      </div>
+      <div class="fact">
+        <span class="label">Reported reason</span>
+        <span class="fact__value" style="font-size: var(--fs-base)">{{ case.reason }}</span>
+      </div>
+      <div class="fact">
+        <span class="label">Cause</span>
+        <span class="fact__value" style="font-size: var(--fs-base)">
+          {% if case.cause %}
+            {{ case.cause }}
+            <span class="dim small">{{ case.confidence | pct }}</span>
+          {% else %}
+            <span class="dim">unclassified</span>
+          {% endif %}
+        </span>
+      </div>
+      <div class="fact">
+        <span class="label">Customer</span>
+        <span class="fact__value" style="font-size: var(--fs-base)">
+          {{ case.customer_id or "—" }}
+        </span>
+      </div>
+      <div class="fact">
+        <span class="label">Spent</span>
+        <span class="fact__value">{{ case.cost_paise | rupees }}</span>
+      </div>
+      <div class="fact">
+        <span class="label">Recovered</span>
+        <span class="fact__value {{ 'money--positive' if case.recovered_paise else 'money--muted' }}">
+          {{ case.recovered_paise | rupees }}
+        </span>
+      </div>
+    </div>
+
+    {% if case.rule %}
+      <p class="small dim" style="margin: var(--s4) 0 0">
+        Classified by <span class="mono">{{ case.rule }}</span>
+        ({{ case.resolution }}).
+        {% if case.resolution == "fallback" %}
+          The deterministic rules had no mapping for these symptoms, so this came
+          from the model fallback — capped in confidence so it can never outrank a
+          documented rule.
+        {% endif %}
+      </p>
+    {% endif %}
+  </div>
+</section>
+
+{# -- the plain-language version ------------------------------------------- #}
+{% if explanation %}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">In short</h2>
+    <span class="topbar__spacer"></span>
+    <span class="tag {{ 'tag--recovered' if explanation.source == 'generated' else 'tag--neutral' }}">
+      {{ explanation.source }}
+    </span>
+  </div>
+  <div class="card__body">
+    <p class="explanation">{{ explanation.text }}</p>
+    <p class="small dim" style="margin: var(--s3) 0 0">
+      {% if explanation.source == "generated" %}
+        Written by a model from the record beside it, and checked against it: an
+        explanation using any figure not in this case's own facts, naming a channel
+        that was not used, or claiming a recovery that did not happen is discarded
+        rather than shown. The model reads the decisions; it does not make them.
+      {% else %}
+        Composed from this case's own facts. No model was involved.
+      {% endif %}
+    </p>
+  </div>
+</section>
+{% endif %}
+</aside>
+</div>
 
 {% endblock %}
 
@@ -220,7 +241,7 @@
 // The same movement as the queue's j/k, one level down: [ and ] step to the
 // larger and smaller payment without going back.
 (function () {
-  const links = [...document.querySelectorAll(".topbar a[href^='/case/']")];
+  const links = [...document.querySelectorAll(".crumbs a[href^='/case/']")];
   const [larger, smaller] = links;
 
   window.recoupKeys = function (event) {
