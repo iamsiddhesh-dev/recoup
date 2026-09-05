@@ -256,8 +256,16 @@ def test_the_studio_page_renders_every_knob(client):
 
 
 def test_the_page_says_the_world_is_fixed(client):
-    """The honesty of the comparison should be on the screen, not only in a doc."""
-    assert "not adjustable" in client.get("/studio").text
+    """The honesty of the comparison should be on the screen, not only in a doc.
+
+    Asserting on the reason rather than the heading: the wording of the heading
+    has changed twice, and both times this test failed while the claim it exists
+    to protect was still on the page.
+    """
+    text = client.get("/studio").text
+
+    assert "adjustable" in text
+    assert "any number you liked" in text
 
 
 def test_starting_a_run_returns_a_job_id(client):

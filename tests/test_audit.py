@@ -201,10 +201,15 @@ def test_the_audit_page_renders(client):
 
 def test_the_page_refuses_to_call_the_figure_a_compliance_cost(client):
     """A number that flatters or alarms in the UI and qualifies itself in a doc
-    is a number nobody reads the doc for."""
+    is a number nobody reads the doc for.
+
+    The qualification now sits in the panel carrying the figure rather than in a
+    banner further down, so this looks for the claim rather than for the
+    sentence that used to make it.
+    """
     html = client.get(f"/audit?arm={ARM}").text
 
-    assert "not the cost of compliance" in html
+    assert "This is not what compliance cost" in html
     assert "counterfactual" in html
 
 

@@ -91,7 +91,7 @@ def test_health_reports_whether_a_run_is_loaded(client):
 
 def test_the_control_room_explains_itself_when_there_is_no_run(client):
     """Real copy, never "No data" — an empty screen is when someone most needs telling."""
-    response = client.get("/")
+    response = client.get("/control")
 
     assert response.status_code == 200
     assert "No run to show yet" in response.text
@@ -110,7 +110,7 @@ def test_built_screens_are_linked_and_unbuilt_ones_are_only_marked(client):
 
     from recoup.web.app import NAV
 
-    html = client.get("/").text
+    html = client.get("/control").text
 
     for item in NAV:
         # Jinja autoescapes, so "Audit & Refusals" renders as "Audit &amp; Refusals".
