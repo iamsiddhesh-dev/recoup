@@ -1,59 +1,111 @@
 /* ===========================================================================
    Recoup — design tokens
    ===========================================================================
-   A control room, not a dashboard. The reference points are trading terminals
-   and network operations consoles: dense, instrument-like, dark by default,
-   with money set in a face you can align in columns.
+   Paper, not a terminal.
+
+   This was a dark control room for most of its life, and dark was the wrong
+   call. A revenue recovery agent is a document you read — arms tables, EV
+   arithmetic, refusal lists, prose explanations — and a dark instrument panel
+   fights every one of those. Worse, dark-plus-teal is the house style of every
+   AI-generated dashboard on the internet, which is precisely the impression
+   this project cannot afford to give.
+
+   So: warm paper, a serif for display, burnt sienna for emphasis. The reference
+   points are financial print and editorial layout rather than trading screens.
+   Light is the default and dark is the alternate, which is the honest way round
+   for something that is mostly text.
 
    Written by hand rather than assembled from a utility framework. A framework's
-   defaults produce the same admin template everyone else ships, and the whole
-   point of this screen is that a Razorpay engineer looks at it and sees a
-   product rather than a homework submission.
+   defaults produce the same admin template everyone else ships.
 
-   Neutrals carry a deliberate blue-green bias toward the accent. A pure grey
-   reads as unconsidered; these read as chosen.
+   Neutrals are warm — they carry a bias toward the paper and the accent. A pure
+   grey next to a cream ground reads as a mistake.
    =========================================================================== */
 
 :root {
   /* -- surfaces ---------------------------------------------------------- */
-  --ground: #0e1117;
-  --surface: #161b24;
-  --raised: #1d242f;
-  --border: #2a3341;
-  --border-strong: #3a4657;
+  --ground: #f3f2ee;          /* the page itself */
+  --surface: #fbfaf9;         /* cards — lighter than the page, not darker */
+  --raised: #f7f6f2;          /* card headers, table heads, hover */
+  --sunken: #efede6;          /* tracks, wells, bar backgrounds */
+  --border: #e4e1d9;          /* hairlines between things */
+  --border-soft: #edeae3;     /* hairlines inside things */
+  --border-strong: #d6d2c8;
 
   /* -- text -------------------------------------------------------------- */
-  --text: #e6ebf2;
-  --muted: #8a97a8;
-  --faint: #5d6879;
+  /* Four levels. The top three all clear 4.5:1 on every surface above and are
+     safe for prose. `--faint` sits at ~4.1:1 and is reserved for the uppercase
+     mono micro-labels above a figure — never for a sentence. */
+  --text: #1b1a17;
+  --body: #55524a;
+  --muted: #6b6760;
+  --faint: #7b776f;
 
   /* -- semantic ---------------------------------------------------------- */
-  --accent: #22c7a9;          /* recovered money, primary action */
-  --accent-dim: #17705f;
-  --warn: #f2a93b;            /* at risk, degraded */
-  --critical: #e5484d;        /* lost, hard failure */
+  /* Emphasis and money are deliberately different colours now. In the old
+     palette the accent *was* recovered money, which meant every accented
+     border and active nav item read faintly as revenue. */
+  --accent: #a8531c;          /* brand, emphasis, the incremental number */
+  --accent-strong: #c96a22;   /* hover, and the second half of a split bar */
+  --positive: #2f6b4f;        /* money that came back */
+  --warn: #8f6412;            /* at risk, degraded */
+  --critical: #a33a31;        /* lost, hard failure */
 
   /* A refusal is a *correct* outcome, not an error. Desaturated on purpose so
      the refusal list does not read as a wall of alarms. */
-  --refused: #7c8ba1;
+  --refused: #6e6a61;
 
-  --accent-wash: rgba(34, 199, 169, 0.10);
-  --warn-wash: rgba(242, 169, 59, 0.10);
-  --critical-wash: rgba(229, 72, 77, 0.10);
-  --refused-wash: rgba(124, 139, 161, 0.10);
+  /* A link on hover goes *darker*, not lighter. `--accent-strong` is the warmer
+     sibling used for the second half of a split bar; it is too light to signal
+     "you are about to click this" against paper. */
+  --accent-hover: #7e3c11;
+
+  /* The one cool colour in the system. Used where a figure is the counterweight
+     to the accent rather than a second emphasis — the retryable share of the
+     pool, and the "no model here" marker. A second warm tone in those places
+     reads as two things being highlighted; a cool one reads as a contrast. */
+  --slate: #3d4a66;
+
+  /* A solid tint, not a 6% wash. Selection has to be visible over body text. */
+  --selection: #e8d6c4;
+
+  /* Dimmed variants exist for borders only. A border in the full accent draws
+     more attention than the thing inside it. */
+  --accent-dim: #dfc4ac;
+  --positive-dim: #b9d2c5;
+
+  --accent-wash: rgba(168, 83, 28, 0.06);
+  --positive-wash: rgba(47, 107, 79, 0.08);
+  --warn-wash: rgba(143, 100, 18, 0.09);
+  --critical-wash: rgba(163, 58, 49, 0.08);
+  --refused-wash: rgba(110, 106, 97, 0.08);
+
+  /* Text laid on a solid accent fill. */
+  --on-accent: #fbfaf9;
+  --on-ink: #fbfaf9;
 
   /* -- type -------------------------------------------------------------- */
-  --font-display: "Archivo", "Segoe UI", system-ui, sans-serif;
-  --font-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  /* Libre Caslon at 400 for display: a serif carries authority at a weight a
+     sans has to shout to reach, and nothing else on the page is a serif, so it
+     needs no other signal to read as a heading.
+
+     Libre Caslon *Text* is a separate face for running prose — the Display cut
+     is drawn for size and gets spindly in a paragraph. It is used in exactly
+     one place: the model's plain-language case explanation, which is the only
+     genuinely literary text in the product. */
+  --font-display: "Libre Caslon Display", Georgia, "Times New Roman", serif;
+  --font-text: "Libre Caslon Text", Georgia, "Times New Roman", serif;
+  --font-body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
   --fs-xs: 11px;
   --fs-sm: 12px;
   --fs-base: 13px;
   --fs-md: 15px;
-  --fs-lg: 19px;
+  --fs-lg: 17px;
   --fs-xl: 26px;
   --fs-2xl: 34px;
+  --fs-hero: 52px;
 
   /* -- space ------------------------------------------------------------- */
   --s1: 4px;
@@ -65,45 +117,78 @@
   --s7: 48px;
 
   /* -- structure --------------------------------------------------------- */
-  --rail-width: 220px;
-  --topbar-height: 56px;
-  --radius: 6px;
-  --radius-sm: 4px;
+  --rail-width: 246px;
+  --topbar-height: 66px;
 
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-lifted: 0 8px 24px rgba(0, 0, 0, 0.5);
+  /* Three radii, by role. Cards are generous, controls are moderate, tags are
+     tight — a chip at the card's radius looks like a pill by accident. */
+  --radius: 16px;             /* cards and sections */
+  --radius-inner: 11px;       /* boxes nested inside a card */
+  --radius-control: 9px;      /* buttons, inputs, selects */
+  --radius-sm: 6px;           /* tags, chips, bar fills */
+  --radius-pill: 999px;
+
+  /* Two shadows, both mostly a wide soft spread rather than a drop. On paper a
+     hard shadow reads as a sticker; this reads as a sheet lying on a desk. */
+  --shadow:
+    0 1px 2px rgba(27, 26, 23, 0.035),
+    0 12px 28px -22px rgba(27, 26, 23, 0.22);
+  --shadow-lifted:
+    0 1px 2px rgba(27, 26, 23, 0.05),
+    0 24px 56px -34px rgba(27, 26, 23, 0.35);
 }
 
 /* ---------------------------------------------------------------------------
-   Light theme.
-   Not an inversion. Surfaces lighten and the accent darkens to hold contrast
-   against them — the dark accent would fail against white, and a naive invert
-   is how a light mode ends up unreadable.
+   Dark theme.
+
+   Not an inversion — warm dark. The ground is a brown-black rather than a
+   blue-black, so the paper identity survives the switch, and the accent
+   *lightens* to #e09250 because burnt sienna at #a8531c disappears against it.
+   A naive invert is how a theme toggle ends up producing an unreadable screen.
    --------------------------------------------------------------------------- */
-:root[data-theme="light"] {
-  --ground: #f4f6f8;
-  --surface: #ffffff;
-  --raised: #eef1f5;
-  --border: #dde3ea;
-  --border-strong: #c3cdd9;
+:root[data-theme="dark"] {
+  --ground: #131210;
+  --surface: #1b1a17;
+  --raised: #211f1b;
+  --sunken: #26241f;
+  --border: #2c2a25;
+  --border-soft: #24221e;
+  --border-strong: #3a3730;
 
-  --text: #131922;
-  --muted: #5b6878;
-  --faint: #8d99a8;
+  --text: #f3f2ee;
+  --body: #bdb8ac;
+  --muted: #a19c90;
+  --faint: #827d74;
 
-  --accent: #0f8a74;
-  --accent-dim: #a6e5d8;
-  --warn: #b8720c;
-  --critical: #c0272c;
-  --refused: #6b7789;
+  --accent: #e09250;
+  --accent-strong: #c96a22;
+  --positive: #6fb392;
+  --warn: #d9a94e;
+  --critical: #e08076;
+  --refused: #8a857b;
 
-  --accent-wash: rgba(15, 138, 116, 0.08);
-  --warn-wash: rgba(184, 114, 12, 0.08);
-  --critical-wash: rgba(192, 39, 44, 0.08);
-  --refused-wash: rgba(107, 119, 137, 0.08);
+  --accent-hover: #f0ad74;
+  --slate: #9fb0d4;
+  --selection: #4a3320;
 
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
-  --shadow-lifted: 0 8px 24px rgba(16, 24, 40, 0.10);
+  --accent-dim: #5c4128;
+  --positive-dim: #2f4a3e;
+
+  --accent-wash: rgba(224, 146, 80, 0.07);
+  --positive-wash: rgba(111, 179, 146, 0.09);
+  --warn-wash: rgba(217, 169, 78, 0.10);
+  --critical-wash: rgba(224, 128, 118, 0.09);
+  --refused-wash: rgba(138, 133, 123, 0.10);
+
+  --on-accent: #1b1a17;
+  --on-ink: #1b1a17;
+
+  --shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 12px 28px -20px rgba(0, 0, 0, 0.6);
+  --shadow-lifted:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 24px 56px -30px rgba(0, 0, 0, 0.75);
 }
 
 /* ---------------------------------------------------------------------------
@@ -117,11 +202,11 @@
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
-:root[data-theme="light"] {
-  color-scheme: light;
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 body {
@@ -132,17 +217,24 @@ body {
   font-size: var(--fs-base);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
+/* Display serif at its natural weight. Libre Caslon ships one cut; asking for
+   600 here would get a synthesised bold, which smears the thin strokes. */
 h1,
 h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: 400;
   margin: 0;
   text-wrap: balance;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.012em;
+}
+
+p {
+  text-wrap: pretty;
 }
 
 a {
@@ -177,6 +269,39 @@ a {
   }
 }
 
+/* Scrollbars, because on a cream page the default grey gutter is the loudest
+   thing on screen. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::selection {
+  background: var(--selection);
+}
+
 /* ---------------------------------------------------------------------------
    Numerals
 
@@ -195,18 +320,53 @@ a {
 }
 
 .money {
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
-.money--positive { color: var(--accent); }
+/* Recovered money is green, not the brand colour. The distinction matters on
+   the arms table, where the accent already marks the row being argued for. */
+.money--positive { color: var(--positive); }
 .money--negative { color: var(--critical); }
 .money--muted    { color: var(--muted); }
 
+/* A figure set as a headline rather than a data point. */
+.figure {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  line-height: 1.02;
+}
+
 /* Uppercase labels need letter-spacing or they read as shouting. */
 .label {
-  font-size: var(--fs-xs);
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
+  letter-spacing: 0.12em;
+  color: var(--faint);
+}
+
+/* ---------------------------------------------------------------------------
+   The slab
+
+   One block on the landing page is dark in both themes, because it carries the
+   caveat and the caveat should not be skimmable. Its palette is therefore
+   absolute rather than tokenised: light-theme `--accent` is #a8531c, which
+   against #1b1a17 is almost unreadable, so every colour inside it is stated
+   here and does not move when the theme does.
+   --------------------------------------------------------------------------- */
+
+:root,
+:root[data-theme="dark"] {
+  --slab: #1b1a17;
+  --slab-ink: #fbfaf9;
+  --slab-body: #b5b0a4;
+  --slab-name: #e8e4da;
+  --slab-gloss: #9e998d;
+  --slab-kicker: #c98a55;
+  --slab-coverage: #8b8577;
+  --slab-judgment: #c96a22;
+  --slab-judgment-ink: #e9a469;
+  --slab-mono: #e8e4da;
 }

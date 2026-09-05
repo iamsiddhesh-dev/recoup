@@ -35,39 +35,65 @@
 
 .rail__brand {
   display: flex;
-  align-items: baseline;
-  gap: var(--s2);
-  padding: var(--s4) var(--s4) var(--s5);
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  gap: 2px;
+  padding: 20px 20px 18px;
 }
 
 .rail__wordmark {
   font-family: var(--font-display);
-  font-size: var(--fs-lg);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+/* The one mark in the product. A full stop after the name, in the accent — it
+   asserts that the wordmark is a wordmark and not just a heading, and it costs
+   five characters rather than a logo. */
+.rail__dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: baseline;
 }
 
 .rail__tagline {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   color: var(--faint);
 }
 
 .rail__nav {
   display: flex;
   flex-direction: column;
-  padding: var(--s3) 0;
-  gap: 1px;
+  padding: 0 10px;
+  gap: 2px;
+}
+
+.rail__group {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 18px 12px 6px;
+}
+
+.rail__group:first-child {
+  padding-top: 10px;
 }
 
 .rail__link {
   display: flex;
   align-items: center;
-  gap: var(--s3);
-  padding: var(--s2) var(--s4);
+  gap: 11px;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius-control);
   color: var(--muted);
-  font-size: var(--fs-base);
-  border-left: 2px solid transparent;
+  font-size: 13.5px;
+  font-weight: 500;
   transition: color 0.12s ease, background 0.12s ease;
 }
 
@@ -76,17 +102,41 @@
   background: var(--raised);
 }
 
+/* The current screen is marked by a filled ground and a full-strength icon
+   rather than a left border. A border on a rounded pill has to be drawn either
+   inside the radius, where it looks like a mistake, or outside it, where it
+   stops being a pill. */
 .rail__link[aria-current="page"] {
   color: var(--text);
   background: var(--raised);
-  border-left-color: var(--accent);
-  font-weight: 500;
 }
 
+/* One box, one stroke weight, six icons. Stroked in `currentColor` so the
+   active item's icon takes the accent without a second rule. */
 .rail__icon {
   width: 16px;
-  text-align: center;
-  opacity: 0.85;
+  height: 16px;
+  flex: none;
+  color: var(--faint);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rail__link[aria-current="page"] .rail__icon {
+  color: var(--accent);
+}
+
+/* How much is behind each link. "Recovery Queue 1,605" is a reason to click;
+   "Recovery Queue" is a label. */
+.rail__count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--faint);
 }
 
 /* Screens not built yet. Shown rather than hidden so the shape of the product is
@@ -115,12 +165,46 @@
 
 .rail__foot {
   margin-top: auto;
-  padding: var(--s4);
+  padding: var(--s4) 20px 18px;
   border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2);
+  background: var(--raised);
 }
+
+.rail__note {
+  margin: var(--s3) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  line-height: 1.5;
+}
+
+/* Run identity as a definition list: term on the left, value on the right, the
+   shape a spec sheet has. */
+.runfacts {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 6px var(--s3);
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+}
+
+.runfacts dt {
+  color: var(--faint);
+}
+
+.runfacts dd {
+  margin: 0;
+  text-align: right;
+  color: var(--muted);
+}
+
+/* The ledger row is the only assertion in the block, so it is the only one
+   with a colour and the only one that is a link. */
+.runfacts__ok a { color: var(--positive); }
+.runfacts__gap a { color: var(--warn); }
+.runfacts a:hover { text-decoration: underline; }
 
 /* ---------------------------------------------------------------------------
    Top bar
@@ -133,11 +217,11 @@
 }
 
 .topbar {
-  height: var(--topbar-height);
+  min-height: var(--topbar-height);
   display: flex;
   align-items: center;
   gap: var(--s4);
-  padding: 0 var(--s5);
+  padding: 13px var(--s5);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -145,10 +229,24 @@
   z-index: 20;
 }
 
+.topbar__heading {
+  min-width: 0;
+}
+
 .topbar__title {
   font-family: var(--font-display);
-  font-size: var(--fs-md);
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+/* What the screen is for, in one line, under its name. Six screens is enough
+   that "Experiment" alone does not tell you what you are looking at. */
+.topbar__purpose {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.3;
 }
 
 .topbar__spacer {
@@ -201,6 +299,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow);
   overflow: hidden;
 }
 
@@ -208,24 +307,24 @@
   display: flex;
   align-items: baseline;
   gap: var(--s3);
-  padding: var(--s3) var(--s4);
-  border-bottom: 1px solid var(--border);
+  padding: 15px 22px;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .card__title {
   font-family: var(--font-display);
-  font-size: var(--fs-base);
-  font-weight: 600;
+  font-size: var(--fs-lg);
+  font-weight: 400;
 }
 
 .card__note {
   font-size: var(--fs-sm);
-  color: var(--muted);
+  color: var(--faint);
   margin-left: auto;
 }
 
 .card__body {
-  padding: var(--s4);
+  padding: 20px 22px;
 }
 
 .card__body--flush {
@@ -250,7 +349,8 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: var(--s4);
+  box-shadow: var(--shadow);
+  padding: var(--s4) 18px;
   display: flex;
   flex-direction: column;
   gap: var(--s2);
@@ -262,12 +362,12 @@
 }
 
 .stat__value {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
   font-size: var(--fs-xl);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  line-height: 1.05;
 }
 
 .stat--headline .stat__value {
@@ -278,6 +378,7 @@
 .stat__detail {
   font-size: var(--fs-sm);
   color: var(--muted);
+  line-height: 1.5;
 }
 
 /* ---------------------------------------------------------------------------
@@ -296,20 +397,21 @@
 
 .table th {
   text-align: left;
-  font-size: var(--fs-xs);
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  padding: var(--s2) var(--s4);
+  letter-spacing: 0.11em;
+  color: var(--faint);
+  padding: 9px var(--s4);
   background: var(--raised);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-soft);
   white-space: nowrap;
 }
 
 .table td {
   padding: var(--s3) var(--s4);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-soft);
   vertical-align: middle;
 }
 
@@ -361,7 +463,7 @@
   border: 1px solid transparent;
 }
 
-.tag--recovered { background: var(--accent-wash); color: var(--accent); border-color: var(--accent-dim); }
+.tag--recovered { background: var(--positive-wash); color: var(--positive); border-color: var(--positive-dim); }
 .tag--risk      { background: var(--warn-wash); color: var(--warn); }
 .tag--lost      { background: var(--critical-wash); color: var(--critical); }
 .tag--refused   { background: var(--refused-wash); color: var(--refused); }
@@ -376,7 +478,7 @@
 
 .bar {
   height: 6px;
-  background: var(--raised);
+  background: var(--sunken);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -544,7 +646,7 @@
   margin-top: var(--s3);
   border: 1px solid var(--border);
   border-left: 2px solid var(--accent);
-  border-radius: var(--radius);
+  border-radius: var(--radius-inner);
   background: var(--raised);
   overflow: hidden;
 }
@@ -587,7 +689,7 @@
 .working {
   margin-top: var(--s3);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-inner);
   background: var(--raised);
   overflow: hidden;
 }
@@ -708,18 +810,27 @@
    Filters
    --------------------------------------------------------------------------- */
 
-.filters {
+.toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--s2);
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* The search field takes the slack, so the selects stay their natural width
+   instead of every control growing to a quarter of the card. */
+.toolbar__search {
+  flex: 1;
+  min-width: 26ch;
 }
 
 /* Native selects render as an operating-system control, which is the single
    loudest "this is an admin panel" signal on a dense screen. Stripped to the same
    shape as the text input beside them, with the disclosure drawn as a background
    so no wrapper element is needed. */
-.filters select {
+.toolbar select {
   appearance: none;
   -webkit-appearance: none;
   background-color: var(--raised);
@@ -730,41 +841,40 @@
   background-repeat: no-repeat;
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 4px var(--s5) 4px var(--s2);
+  border-radius: var(--radius-control);
+  padding: 7px var(--s5) 7px 11px;
   font-family: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   cursor: pointer;
 }
 
-.filters select:hover {
+.toolbar select:hover {
   border-color: var(--border-strong);
 }
 
 /* The list itself is drawn by the browser, so its colours have to be set
    explicitly or a dark page opens a white menu. */
-.filters select option {
+.toolbar select option {
   background: var(--surface);
   color: var(--text);
 }
 
-.filters .input {
+.toolbar .input {
   background: var(--raised);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 4px var(--s2);
+  border-radius: var(--radius-control);
+  padding: 7px 11px;
   font-family: inherit;
-  font-size: var(--fs-sm);
-  min-width: 20ch;
+  font-size: var(--fs-base);
 }
 
-.filters .input::placeholder {
+.toolbar .input::placeholder {
   color: var(--faint);
 }
 
-.filters .input:focus-visible,
-.filters select:focus-visible {
+.toolbar .input:focus-visible,
+.toolbar select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   border-color: var(--accent);
@@ -782,7 +892,12 @@
   display: flex;
   align-items: center;
   gap: var(--s3);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-soft);
+}
+
+.pager__keys {
+  font-size: var(--fs-sm);
+  color: var(--faint);
 }
 
 .pager__position {
@@ -847,6 +962,50 @@
   border-left: 2px solid var(--border-strong);
 }
 
+/* ---------------------------------------------------------------------------
+   Pool
+
+   The population every arm was given, split by whether a payment can be charged
+   again at all. Two blocks sized by their share, so the constraint is a shape
+   before it is a number: three quarters of the money is behind failures no
+   retry can touch.
+   --------------------------------------------------------------------------- */
+
+.pool {
+  display: flex;
+  gap: 3px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pool__part {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 15px 18px;
+  min-width: 0;
+}
+
+.pool__part--retryable {
+  background: var(--accent-wash);
+  border-left: 2px solid var(--accent);
+}
+
+.pool__part--customer {
+  background: var(--sunken);
+  border-left: 2px solid var(--refused);
+}
+
+.pool__value {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.pool__detail {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
 .split__label {
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -873,37 +1032,47 @@
   gap: var(--s2);
 }
 
+.decomp {
+  margin-top: 22px;
+}
+
 .decomp__row {
   display: grid;
-  grid-template-columns: 92px 1fr auto 56px;
+  grid-template-columns: 110px minmax(0, 1fr) auto 56px;
   align-items: center;
-  gap: var(--s3);
+  gap: 12px 14px;
 }
 
 .decomp__label {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   font-weight: 600;
 }
 
 .decomp__value {
-  font-family: var(--font-mono);
+  font-size: 13.5px;
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
 }
 
 .decomp__share {
-  font-family: var(--font-mono);
-  text-align: right;
+  font-size: 12.5px;
   color: var(--muted);
+  text-align: right;
 }
 
+/* Indented past the label column so the sentence starts under the bar it is
+   about, not under the word naming it. */
 .decomp__note {
-  margin: 0 0 var(--s3) 0;
-  padding-left: calc(92px + var(--s3));
-  font-size: var(--fs-xs);
+  margin: 4px 0 14px;
+  padding-left: 124px;
+  font-size: 11.5px;
   color: var(--faint);
-  line-height: 1.5;
+  line-height: 1.6;
+}
+
+.decomp__note--last {
+  margin-bottom: 0;
 }
 
 @media (max-width: 700px) {
@@ -935,25 +1104,27 @@
 .tornado {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+  margin-top: 22px;
 }
 
 .tornado__row {
   display: grid;
-  grid-template-columns: 210px 1fr 92px;
+  grid-template-columns: 180px minmax(0, 1fr) 88px;
   align-items: center;
-  gap: var(--s3);
+  gap: 14px;
 }
 
 .tornado__label {
-  font-size: var(--fs-sm);
+  font-size: 12.5px;
   font-weight: 500;
 }
 
 .tornado__track {
   position: relative;
-  height: 14px;
-  background: var(--raised);
-  border-radius: 3px;
+  height: 13px;
+  background: var(--sunken);
+  border-radius: 4px;
 }
 
 .tornado__span {
@@ -961,11 +1132,13 @@
   top: 0;
   bottom: 0;
   background: var(--accent);
-  border-radius: 3px;
+  border-radius: 4px;
   min-width: 2px;
   opacity: 0.85;
 }
 
+/* The committed baseline, drawn through the bar rather than beside it. A band
+   that straddles this line moves the answer in both directions. */
 .tornado__base {
   position: absolute;
   top: -3px;
@@ -976,19 +1149,18 @@
 }
 
 .tornado__value {
-  font-family: var(--font-mono);
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
-  font-size: var(--fs-sm);
   text-align: right;
   white-space: nowrap;
 }
 
 .tornado__why {
-  margin: 2px 0 var(--s3) 0;
-  padding-left: calc(210px + var(--s3));
-  font-size: var(--fs-xs);
+  margin: 0 0 12px;
+  padding-left: 194px;
+  font-size: 11.5px;
   color: var(--faint);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 @media (max-width: 800px) {
@@ -1011,15 +1183,54 @@
 
 .grid-studio {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) 1fr;
-  gap: var(--s4);
+  grid-template-columns: minmax(300px, 370px) minmax(0, 1fr);
+  gap: var(--s5);
   align-items: start;
+}
+
+/* The result column owns rows two and beyond; the panel spans them, so the note
+   under the table sits beside the sliders rather than under them. */
+.grid-studio > .card:first-child {
+  grid-row: 1 / span 2;
+}
+
+.studio__panel {
+  position: sticky;
+  top: calc(var(--topbar-height) + var(--s5));
 }
 
 @media (max-width: 900px) {
   .grid-studio {
     grid-template-columns: 1fr;
   }
+}
+
+/* The form is one column with its own rhythm rather than a `.stack`: group
+   headings need more air above them than sliders need between them. */
+#studio-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.knobs__group {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--border-soft);
+  margin-top: 6px;
+}
+
+.knobs__group:first-child { margin-top: 0; }
+
+/* The one group that is not a price says so on its own heading. */
+.knobs__aside {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--refused);
 }
 
 .knob {
@@ -1065,11 +1276,23 @@ input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--raised);
-  border: 1px solid var(--border);
+  height: 18px;
+  background: transparent;
+  border: none;
   outline-offset: 4px;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -1080,6 +1303,8 @@ input[type="range"]::-webkit-slider-thumb {
   border-radius: 50%;
   background: var(--accent);
   border: none;
+  /* Half the thumb minus half the track, so it centres on a 3px rail. */
+  margin-top: -5.5px;
   cursor: pointer;
 }
 
@@ -1093,12 +1318,13 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .button--primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #06231d;
-  font-weight: 600;
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--on-ink);
+  font-weight: 500;
   justify-content: center;
-  padding: var(--s2) var(--s4);
+  padding: var(--s3) 18px;
+  border-radius: var(--radius-control);
 }
 
 .button--primary:hover {
@@ -1166,13 +1392,15 @@ input[type="range"]::-moz-range-thumb {
   display: inline-flex;
   align-items: center;
   gap: var(--s2);
-  padding: 5px var(--s3);
+  padding: 6px var(--s3);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
   background: var(--raised);
-  color: var(--text);
+  color: var(--body);
   font-family: inherit;
-  font-size: var(--fs-sm);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -1209,7 +1437,35 @@ input[type="range"]::-moz-range-thumb {
     border-bottom-color: var(--accent);
   }
 
-  .rail__foot { display: none; }
+  /* Group headings are a vertical device. In a horizontal strip they become
+     unlabelled gaps, so they go rather than being turned sideways. */
+  .rail__group { display: none; }
+
+  /* The run identity lays down flat rather than disappearing.
+
+     It used to be `display: none` here, which silently broke the one claim this
+     product repeats everywhere — that the seed is on screen at all times. A
+     narrow window is still a window. */
+  .rail__foot {
+    padding: var(--s3) var(--s4);
+  }
+
+  .rail__foot .label,
+  .rail__note {
+    display: none;
+  }
+
+  .runfacts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s1) var(--s3);
+    margin: 0;
+  }
+
+  .runfacts dd {
+    margin-right: var(--s3);
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -1223,7 +1479,8 @@ input[type="range"]::-moz-range-thumb {
 .explanation {
   margin: 0;
   max-width: 68ch;
-  font-size: var(--fs-lg);
+  font-family: var(--font-text);
+  font-size: var(--fs-md);
   line-height: 1.6;
   color: var(--text);
 }
@@ -1240,7 +1497,7 @@ input[type="range"]::-moz-range-thumb {
   margin-top: var(--s4);
   border: 1px solid var(--border);
   border-left: 2px solid var(--refused);
-  border-radius: var(--radius);
+  border-radius: var(--radius-inner);
   background: var(--raised);
   padding: var(--s3);
 }
@@ -1324,7 +1581,7 @@ input[type="range"]::-moz-range-thumb {
   overflow: auto;
   padding: var(--s3);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-inner);
   background: var(--ground);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -1347,7 +1604,7 @@ input[type="range"]::-moz-range-thumb {
   padding: var(--s3);
   border: 1px solid var(--border);
   border-left: 2px solid var(--accent);
-  border-radius: var(--radius);
+  border-radius: var(--radius-inner);
   background: var(--raised);
 }
 
@@ -1392,32 +1649,35 @@ input[type="range"]::-moz-range-thumb {
 .replay__controls {
   display: flex;
   align-items: center;
-  gap: var(--s3);
-  margin-bottom: var(--s4);
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 .button--play {
   flex: 0 0 auto;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 32px;
+  height: 32px;
   padding: 0;
   display: grid;
   place-items: center;
-  font-size: var(--fs-sm);
+  border-radius: 50%;
+  background: var(--raised);
+  border-color: var(--border);
+  color: var(--text);
+  font-size: var(--fs-xs);
   line-height: 1;
-  border-color: var(--accent-dim);
-  color: var(--accent);
 }
 
 .button--play:hover {
-  border-color: var(--accent);
-  background: var(--accent-wash);
+  border-color: var(--border-strong);
+  background: var(--raised);
 }
 
 .replay__clock {
   flex: 0 0 auto;
-  min-width: 12ch;
+  min-width: 118px;
   text-align: right;
+  white-space: nowrap;
   font-size: var(--fs-sm);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -1428,19 +1688,19 @@ input[type="range"]::-moz-range-thumb {
   flex: 1 1 auto;
   appearance: none;
   -webkit-appearance: none;
-  height: 1.5rem;
+  height: 18px;
   background: transparent;
   cursor: pointer;
 }
 
 .replay__range::-webkit-slider-runnable-track {
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
   background: var(--border);
 }
 
 .replay__range::-moz-range-track {
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
   background: var(--border);
 }
@@ -1487,7 +1747,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .replay__grid {
-  stroke: var(--border);
+  stroke: var(--border-soft);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
@@ -1538,8 +1798,9 @@ input[type="range"]::-moz-range-thumb {
 .replay__marker {
   stroke: var(--text);
   stroke-width: 1;
+  stroke-dasharray: 3 3;
   vector-effect: non-scaling-stroke;
-  opacity: 0.55;
+  opacity: 0.45;
 }
 
 /* A readout, not a second scoreboard. Borderless and lighter than the tiles at
@@ -1548,10 +1809,10 @@ input[type="range"]::-moz-range-thumb {
    were saying everything twice. */
 .replay__readout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: var(--s4);
-  padding-top: var(--s4);
-  border-top: 1px solid var(--border);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-soft);
 }
 
 .replay__figure {
@@ -1564,9 +1825,8 @@ input[type="range"]::-moz-range-thumb {
 .replay__value {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 18px;
+  font-weight: 500;
   line-height: 1.2;
   color: var(--text);
 }
@@ -1586,7 +1846,7 @@ input[type="range"]::-moz-range-thumb {
   z-index: 100;
   padding: var(--s2) var(--s4);
   background: var(--accent);
-  color: #06231d;
+  color: var(--on-accent);
   border-radius: var(--radius-sm);
   font-weight: 600;
   transition: top 0.15s ease;
@@ -1672,4 +1932,798 @@ kbd {
   font-size: var(--fs-xs);
   color: var(--text);
   text-align: center;
+}
+
+/* ---------------------------------------------------------------------------
+   Icon button
+
+   A square button whose whole content is one glyph. Given an explicit size so
+   the theme toggle does not change width when the glyph is swapped.
+   --------------------------------------------------------------------------- */
+
+.button--icon {
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+  font-size: var(--fs-md);
+  line-height: 1;
+}
+
+/* ---------------------------------------------------------------------------
+   Hero
+
+   The scoreboard, as one card split in two rather than five equal tiles.
+
+   The split matters. What the run recovered and what that is worth over a naive
+   baseline are different kinds of claim, and giving them the same weight as the
+   contact count is how a reader ends up quoting the biggest number on the page
+   instead of the true one.
+   --------------------------------------------------------------------------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.15fr) minmax(280px, 1fr);
+}
+
+.hero__main {
+  padding: 26px 28px;
+  border-right: 1px solid var(--border-soft);
+}
+
+/* The right half sits on the raised ground so the two readings are visibly
+   different arguments, without a second card and a second shadow. */
+.hero__aside {
+  padding: 26px 28px;
+  background: var(--raised);
+  display: flex;
+  flex-direction: column;
+}
+
+.hero__eyebrow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+}
+
+.hero__arm {
+  font-size: var(--fs-xs);
+  color: var(--accent);
+}
+
+.hero__figure {
+  font-size: var(--fs-hero);
+  margin-top: 10px;
+}
+
+.hero__figure--accent {
+  font-size: 34px;
+  color: var(--accent);
+}
+
+.hero__gloss {
+  margin: var(--s2) 0 0;
+  font-size: 13.5px;
+  color: var(--body);
+}
+
+.hero__gauge {
+  margin-top: 20px;
+}
+
+.hero__gauge-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
+.hero__subs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: var(--s5);
+  padding-top: 20px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.hero__subs > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hero__sub-value {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero__note {
+  margin: 20px 0 14px;
+  font-size: 12.5px;
+  color: var(--body);
+  line-height: 1.55;
+}
+
+.hero__foot {
+  margin: auto 0 0;
+  padding-top: 18px;
+  font-size: var(--fs-sm);
+  color: var(--faint);
+  line-height: 1.55;
+}
+
+.label--accent {
+  color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+   Split bar and legend
+
+   Two segments sized by their share, then the same two named underneath with
+   their amounts. The bar alone is a shape; the legend alone is a table. Read
+   together they are an argument about where a number came from.
+   --------------------------------------------------------------------------- */
+
+/* Named `sharebar`, not `split`: `.split` is already the two-panel block that
+   divides the pool on the experiment screen, and reusing the name here silently
+   collapsed that one to nine pixels tall. */
+.sharebar {
+  display: flex;
+  gap: 3px;
+  height: 9px;
+}
+
+.sharebar__coverage,
+.sharebar__judgment {
+  border-radius: 5px;
+}
+
+/* Coverage is the desaturated half on purpose: it is the part of the lift that
+   is not cleverness, and colouring it like an achievement would undo the point
+   of separating it. */
+.sharebar__coverage { background: var(--refused); }
+.sharebar__judgment { background: var(--accent); }
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+
+.legend__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.legend__swatch {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.legend__swatch--coverage { background: var(--refused); }
+.legend__swatch--judgment { background: var(--accent); }
+
+.legend__name {
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.legend__value {
+  margin-left: auto;
+  font-size: var(--fs-base);
+}
+
+.legend__share {
+  width: 44px;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+.legend__gloss {
+  margin: 4px 0 12px 15px;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.legend__gloss:last-child {
+  margin-bottom: 0;
+}
+
+.bar--thick {
+  height: 10px;
+  border-radius: 5px;
+}
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero__main {
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Strip
+
+   A row of counts, joined rather than separated: the hairlines between cells are
+   the grid's own gaps showing a background through. One border and one radius
+   for the whole run of them, so five figures read as one statement about the
+   same population instead of five unrelated cards.
+   --------------------------------------------------------------------------- */
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* Hairlines are drawn by each cell into its own right and bottom edge rather
+   than by a background showing through a 1px grid gap. The gap trick is neater
+   until the row wraps: the leftover track has no cell in it, and paints as a
+   solid block of border colour where a tile should be. */
+.strip__cell {
+  padding: var(--s4) 18px;
+  box-shadow: 1px 0 0 var(--border), 0 1px 0 var(--border);
+}
+
+.strip__value {
+  display: block;
+  margin-top: 6px;
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+}
+
+.label--positive { color: var(--positive); }
+
+/* ---------------------------------------------------------------------------
+   Case layout
+
+   The story on the left, what the story is about on the right. The sidebar
+   sticks because the timeline can run to a dozen events, and scrolling the
+   amount and the outcome off the screen is how a reader loses the thread of
+   which payment they are reading about.
+   --------------------------------------------------------------------------- */
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+
+.crumbs__trail {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.crumbs__trail a { color: var(--accent); }
+
+.crumbs__sep { color: var(--faint); }
+
+.crumbs__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.case {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.95fr);
+  gap: var(--s5);
+  align-items: start;
+}
+
+.case__story,
+.case__aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+  min-width: 0;
+}
+
+.case__aside {
+  position: sticky;
+  top: calc(var(--topbar-height) + var(--s5));
+}
+
+/* In the sidebar the seven facts stack rather than sitting in a grid: at 300px
+   a two-column fact list wraps every value onto its own line anyway, which is a
+   list with extra steps. */
+.case__aside .facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.case__aside .fact {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s3);
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.case__aside .fact:last-child { border-bottom: none; }
+
+.case__aside .fact__value { text-align: right; }
+
+@media (max-width: 1000px) {
+  .case {
+    grid-template-columns: 1fr;
+  }
+
+  .case__aside {
+    position: static;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Jump bar
+
+   Sticks under the top bar on the one screen long enough to need it. Sections
+   get scroll-margin so an anchor jump does not land the heading underneath the
+   two sticky bars above it.
+   --------------------------------------------------------------------------- */
+
+.jumps {
+  position: sticky;
+  top: var(--topbar-height);
+  z-index: 15;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: calc(var(--s5) * -1) calc(var(--s5) * -1) 0;
+  padding: var(--s3) var(--s5);
+  background: var(--ground);
+  border-bottom: 1px solid var(--border);
+}
+
+.jumps a {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--body);
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: 5px 11px;
+}
+
+.jumps a:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.content > section[id] {
+  scroll-margin-top: calc(var(--topbar-height) + 64px);
+}
+
+/* Run identity and the ledger's integrity claims on one line, under the funnel
+   they qualify. */
+.ledgerline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s5);
+  margin-top: 18px;
+}
+
+.ledgerline .label {
+  margin-right: var(--s2);
+}
+
+.money--accent { color: var(--accent); }
+
+/* ---------------------------------------------------------------------------
+   Note
+
+   A paragraph that qualifies the thing above it. Quieter than a card: no
+   shadow, no white ground, because it is an aside and should not compete with
+   the result it is commenting on.
+   --------------------------------------------------------------------------- */
+
+.note {
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 22px;
+}
+
+.note__title {
+  font-family: var(--font-display);
+  font-size: 16.5px;
+}
+
+.note__body {
+  margin: 7px 0 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--body);
+  max-width: 92ch;
+}
+
+/* ---------------------------------------------------------------------------
+   Calls
+
+   Every model call in the run, as rows that open. The counts live on the closed
+   row: the claim this screen makes is that nothing was refused, and a reader
+   should be able to check that without opening five accordions.
+   --------------------------------------------------------------------------- */
+
+.calls {
+  display: flex;
+  flex-direction: column;
+}
+
+.call {
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.call:last-child { border-bottom: none; }
+
+.call__summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  cursor: pointer;
+
+  /* The default marker is a black triangle that sits outside the flex layout
+     and drags the first child off the baseline. Replaced below with one drawn
+     in the type colour, on the correct side for the text direction. */
+  list-style: none;
+}
+
+.call__summary::-webkit-details-marker { display: none; }
+
+.call__summary::after {
+  content: "▸";
+  margin-left: var(--s3);
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  transition: transform 0.12s ease;
+}
+
+.call[open] > .call__summary::after {
+  transform: rotate(90deg);
+}
+
+.call__summary:hover { background: var(--raised); }
+
+.call__index {
+  width: 16px;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
+.call__name { min-width: 0; }
+
+.call__what {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.call__purpose {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
+.call__counts {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.call__tokens {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.call__refused {
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
+/* Indented to the width of the index column, so an open call's contents line up
+   under its title rather than under its number. */
+.call__body {
+  padding: 0 22px 20px 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@media (max-width: 700px) {
+  .call__summary { flex-wrap: wrap; }
+  .call__counts { margin-left: 0; width: 100%; justify-content: flex-start; }
+  .call__body { padding-left: 22px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Primary button, restated
+
+   `.button--primary` is declared earlier in this file than the base `.button`
+   it modifies, so the base rule's background won on source order and the one
+   button that should be solid ink rendered as pale as its neighbours. Restated
+   here, after the base, rather than moved — the earlier block sits with the
+   studio styles it belongs to.
+   --------------------------------------------------------------------------- */
+
+.button--primary {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--on-ink);
+}
+
+.button--primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-ink);
+}
+
+/* A strip cell carrying a headline figure rather than a count. */
+.strip__figure {
+  font-size: 28px;
+  margin-top: var(--s2);
+}
+
+.strip__gloss {
+  margin: 5px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.strip__cell--accent {
+  background: linear-gradient(180deg, var(--accent-wash), transparent 70%);
+}
+
+.strip__cell--accent .strip__figure { color: var(--accent); }
+
+/* A caveat set at the foot of the card it qualifies, inside the border and over
+   its own hairline. Reads as part of the table rather than as a separate note. */
+.card__foot {
+  margin: 0;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border-soft);
+  font-size: var(--fs-sm);
+  color: var(--faint);
+  line-height: 1.6;
+}
+
+/* A card head whose second line describes the card rather than annotating it.
+   Used where the subtitle is a fact about the contents ("319 recoveries by the
+   action that produced them") rather than a caveat — those read as a caption
+   under the title, not as a note pushed to the far right. */
+.card__head--stack {
+  display: block;
+}
+
+.card__head--stack .card__sub {
+  display: block;
+  margin: 3px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--faint);
+}
+
+/* ---------------------------------------------------------------------------
+   Callout
+
+   The conclusion of a section, stated before the evidence for it. A quieter
+   ground than a card and no shadow, because it sits inside one.
+   --------------------------------------------------------------------------- */
+
+.callout {
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+/* A result that held. Green rather than accent: this is a fact about the
+   finding, not an emphasis the author is adding to it. */
+.callout--positive {
+  background: var(--positive-wash);
+}
+
+.callout--warn {
+  background: var(--warn-wash);
+}
+
+.callout__title {
+  font-family: var(--font-display);
+  font-size: 16.5px;
+}
+
+.callout__body {
+  margin: 6px 0 0;
+  font-size: var(--fs-base);
+  line-height: 1.65;
+  color: var(--body);
+  max-width: 94ch;
+}
+
+/* Running prose inside a card body, under whatever it describes. */
+.card__prose {
+  margin: 16px 0 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--body);
+  max-width: 98ch;
+}
+
+.card__prose--quiet {
+  margin-top: 20px;
+  font-size: var(--fs-sm);
+  color: var(--faint);
+}
+
+/* A strip whose cells carry a figure rather than a headline, so they sit
+   tighter than the scoreboard variant. */
+.strip--tight .strip__cell {
+  padding: 16px 18px;
+}
+
+.strip__count {
+  display: block;
+  margin-top: 6px;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A bar in a row that already has its own label column. */
+.bar--wide {
+  height: 8px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+   Panel note
+
+   A figure and then the sentence saying what the figure is *not*. Used where a
+   number is easy to misread as a cost or a loss, and the correction has to
+   travel with it rather than sit in a paragraph further down the page.
+   --------------------------------------------------------------------------- */
+
+.panel-note {
+  padding: 20px 22px;
+}
+
+.panel-note__figure {
+  font-size: 30px;
+  margin-top: 10px;
+}
+
+.panel-note__title {
+  font-family: var(--font-display);
+  font-size: 16.5px;
+  margin-top: 18px;
+}
+
+.panel-note__body {
+  margin: 6px 0 0;
+  font-size: var(--fs-base);
+  line-height: 1.65;
+  color: var(--body);
+}
+
+/* A card's last row when it is a way out of the card rather than more of it. */
+.card__link {
+  margin-top: auto;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.card__link a { color: var(--accent); }
+
+/* Both cards in this pair end with different amounts of content, so they need to
+   stretch rather than sit at their natural heights. */
+.grid-2 > .card {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------------------------------
+   Segmented control
+
+   Two or four mutually exclusive states in one housing, the current one filled.
+   Used for the arm switch and the theme pair. A row of separate buttons says
+   "press any of these"; a segment says "you are in one of these".
+   --------------------------------------------------------------------------- */
+
+.topbar__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.topbar__rule {
+  width: 1px;
+  height: 26px;
+  background: var(--border);
+}
+
+.segment-group {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.segment {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.segment__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.segment__item:hover {
+  color: var(--text);
+}
+
+/* Ink, not accent. The selected segment is a statement of where you are, not an
+   emphasis on where you should go. */
+.segment__item--on,
+.segment__item--on:hover {
+  background: var(--text);
+  color: var(--on-ink);
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  /* The arm switch is four items wide and the theme pair is two. Below the
+     breakpoint the title already wraps, so the arm switch goes and the theme
+     stays — one is navigation you can do from the URL, the other is not. */
+  .segment-group,
+  .topbar__rule {
+    display: none;
+  }
 }
