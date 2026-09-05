@@ -907,7 +907,16 @@ def build_experiment(
     if not counted_pool:
         return view
 
-    view.arms = [breakdowns[name] for name in ledger.arms() if name in breakdowns]
+    # Ordered as the argument is made, not as the ledger happens to return them:
+    # what merchants do, then what contacting adds, then what judgment adds on
+    # top, then the same agent with the model removed. Read down the column the
+    # rows build; in ledger order they are just four unrelated numbers.
+    order = [baseline, contact, agent, ablation]
+    rank = {name: i for i, name in enumerate(order)}
+    view.arms = sorted(
+        (breakdowns[name] for name in ledger.arms() if name in breakdowns),
+        key=lambda a: (rank.get(a.arm, len(order)), a.arm),
+    )
 
     base = breakdowns.get(baseline)
     reach = breakdowns.get(contact)
@@ -935,3 +944,22 @@ def queue_facets(ledger: Ledger, arm: str) -> dict[str, list[str]]:
             causes.add(cause)
 
     return {"causes": sorted(causes), "outcomes": ["recovered", "stopped", "open"]}
+
+
+def queue_totals(ledger: Ledger, arm: str) -> dict[str, int]:
+    """How the whole queue divides, before any filter is applied.
+
+    Shown above the table rather than left to be inferred from paging through it.
+    The interesting number here is `stopped`: it is much larger than `recovered`,
+    and a reader who does not see that up front will read the queue as a list of
+    failures rather than as a list of decisions, most of which were to stop.
+    """
+    rows = build_queue(ledger, arm, limit=0)
+    totals = {"failures": len(rows), "recovered": 0, "stopped": 0, "open": 0}
+
+    for row in rows:
+        if row.outcome in totals:
+            totals[row.outcome] += 1
+
+    totals["at_risk"] = sum(row.amount for row in rows)
+    return totals

@@ -30,6 +30,12 @@ class Knob:
     step: float
     unit: str = ""
 
+    # Which heading this sits under in the studio. Seven undifferentiated
+    # sliders read as a settings page; grouped, they read as three separate
+    # arguments — what the agent thinks money is worth, what reaching a customer
+    # costs, and what it is not allowed to do regardless of either.
+    group: str = "Economics"
+
     def value_from(self, policy: PolicyConfig, compliance: ComplianceConfig) -> float:
         return KNOB_READERS[self.key](policy, compliance)
 
@@ -61,25 +67,6 @@ KNOBS: list[Knob] = [
         unit="₹",
     ),
     Knob(
-        key="whatsapp_cost",
-        label="WhatsApp cost",
-        help="Per message. Cheap enough that reach usually wins.",
-        minimum=0,
-        maximum=500,
-        step=5,
-        unit="₹",
-    ),
-    Knob(
-        key="voice_cost",
-        label="Voice call cost",
-        help="The most effective channel and the most expensive. Where the two "
-        "cross over is the interesting part.",
-        minimum=0,
-        maximum=1_000,
-        step=10,
-        unit="₹",
-    ),
-    Knob(
         key="escalation_scarcity",
         label="Value of a human slot",
         help="The opportunity cost of spending one of a limited number of "
@@ -90,12 +77,34 @@ KNOBS: list[Knob] = [
         unit="₹",
     ),
     Knob(
+        key="whatsapp_cost",
+        label="WhatsApp cost",
+        help="Per message. Cheap enough that reach usually wins.",
+        minimum=0,
+        maximum=500,
+        step=5,
+        unit="₹",
+        group="Channel cost",
+    ),
+    Knob(
+        key="voice_cost",
+        label="Voice call cost",
+        help="The most effective channel and the most expensive. Where the two "
+        "cross over is the interesting part.",
+        minimum=0,
+        maximum=1_000,
+        step=10,
+        unit="₹",
+        group="Channel cost",
+    ),
+    Knob(
         key="max_contacts",
         label="Contacts per customer / 7d",
         help="A hard compliance cap. Lower it and the refusal list grows.",
         minimum=0,
         maximum=6,
         step=1,
+        group="Compliance caps",
     ),
     Knob(
         key="max_attempts",
@@ -104,6 +113,7 @@ KNOBS: list[Knob] = [
         minimum=1,
         maximum=8,
         step=1,
+        group="Compliance caps",
     ),
 ]
 

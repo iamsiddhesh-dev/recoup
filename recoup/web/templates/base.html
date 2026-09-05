@@ -5,7 +5,7 @@
    a function of it, and putting it on screen permanently makes reproducibility
    something a viewer can see rather than something a README asserts. #}
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,14 +17,14 @@
 
   {# A rising line, inline. The tab icon is the first thing anyone sees and the
      last thing anyone builds; as a data URI it costs no request and no binary. #}
-  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%227%22%20fill%3D%22%230E1117%22%2F%3E%3Cpath%20d%3D%22M6%2022.5%20L12.5%2016%20L18%2019.5%20L26%209.5%22%20fill%3D%22none%22%20stroke%3D%22%2322C7A9%22%20stroke-width%3D%223.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2226%22%20cy%3D%229.5%22%20r%3D%222.8%22%20fill%3D%22%2322C7A9%22%2F%3E%3C%2Fsvg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%227%22%20fill%3D%22%23F3F2EE%22%2F%3E%3Cpath%20d%3D%22M6%2022.5%20L12.5%2016%20L18%2019.5%20L26%209.5%22%20fill%3D%22none%22%20stroke%3D%22%23A8531C%22%20stroke-width%3D%223.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2226%22%20cy%3D%229.5%22%20r%3D%222.8%22%20fill%3D%22%23A8531C%22%2F%3E%3C%2Fsvg%3E">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Instrument+Sans:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/static/tokens.css">
-  <link rel="stylesheet" href="/static/components.css">
+  <link rel="stylesheet" href="/static/tokens.css?v={{ assets() }}">
+  <link rel="stylesheet" href="/static/components.css?v={{ assets() }}">
 </head>
 <body>
 {# First tab stop on every screen. The rail is six links deep, so without this a
@@ -36,22 +36,29 @@
 
   <nav class="rail">
     <div class="rail__brand">
-      <span class="rail__wordmark">Recoup</span>
-      <span class="rail__tagline">revenue recovery</span>
+      <span class="rail__wordmark">Recoup<span class="rail__dot" aria-hidden="true"></span></span>
+      <span class="rail__tagline">revenue recovery agent</span>
     </div>
 
     <div class="rail__nav">
+      {# Grouped rather than flat. `loop.changed` opens a new heading whenever the
+         group changes, so the ordering in NAV is the only thing that decides the
+         sections — there is no second list to keep in step with the first. #}
       {% for item in nav %}
+        {% if loop.changed(item.group) %}
+          <div class="rail__group">{{ item.group }}</div>
+        {% endif %}
         {% if item.built %}
           <a class="rail__link"
              href="{{ item.href }}"
              {% if item.key == active %}aria-current="page"{% endif %}>
-            <span class="rail__icon" aria-hidden="true">{{ item.icon }}</span>
+            <svg class="rail__icon" viewBox="0 0 16 16" aria-hidden="true">{{ item.icon | safe }}</svg>
             <span>{{ item.label }}</span>
+            {% if item.count %}<span class="rail__count">{{ item.count }}</span>{% endif %}
           </a>
         {% else %}
           <span class="rail__link rail__link--pending" aria-disabled="true">
-            <span class="rail__icon" aria-hidden="true">{{ item.icon }}</span>
+            <svg class="rail__icon" viewBox="0 0 16 16" aria-hidden="true">{{ item.icon | safe }}</svg>
             <span>{{ item.label }}</span>
             <span class="rail__pending">soon</span>
           </span>
@@ -59,38 +66,69 @@
       {% endfor %}
     </div>
 
+    {# What produced everything above, in one block at the bottom of every screen.
+       Reproducibility as a standing fact rather than a claim in a README. #}
     <div class="rail__foot">
       {% if summary %}
-        <span class="chip">
-          <span class="chip__key">horizon</span>{{ summary.horizon_days }}d
-        </span>
-        <span class="chip">
-          <span class="chip__key">batch</span>{{ summary.batch_size | int_comma }}
-        </span>
+        <div class="label">This run</div>
+        <dl class="runfacts">
+          <dt>seed</dt><dd class="mono" title="Every number on this page is a function of this seed">{{ summary.seed }}</dd>
+          <dt>horizon</dt><dd class="mono">{{ summary.horizon_days }} days</dd>
+          <dt>batch</dt><dd class="mono">{{ summary.batch_size | int_comma }}</dd>
+          <dt>computed</dt><dd class="mono">{{ summary.generated_at | when }}</dd>
+          {# The one line here that is a claim rather than an input. "recorded",
+             not "verified": the rail cannot re-hash nine thousand events on
+             every page load, and the audit screen is where that check actually
+             runs. Saying "verified" here would be the sort of small overclaim
+             this project spends the rest of its surface avoiding. #}
+          <dt>ledger</dt>
+          <dd class="mono {{ 'runfacts__ok' if summary.digests else 'runfacts__gap' }}">
+            <a href="/audit">{{ 'recorded' if summary.digests else 'not recorded' }}</a>
+          </dd>
+        </dl>
+        <p class="rail__note">no API key · reproduces offline</p>
+      {% else %}
+        <p class="rail__note">No run loaded. Generate one with <span class="mono">make demo</span>.</p>
       {% endif %}
-      <button class="button" type="button" onclick="toggleTheme()">Toggle theme</button>
     </div>
   </nav>
 
   <div class="main">
     <header class="topbar">
-      <h1 class="topbar__title">{% block heading %}{% endblock %}</h1>
+      <div class="topbar__heading">
+        <h1 class="topbar__title">{% block heading %}{% endblock %}</h1>
+        {% if purpose %}<p class="topbar__purpose">{{ purpose }}</p>{% endif %}
+      </div>
       <div class="topbar__spacer"></div>
-      {% block topbar_extra %}{% endblock %}
-      {% if summary %}
-        {# Run identity lives here, not in the rail: the rail's footer is hidden
-           below 900px, and "the seed is on screen at all times" is a claim this
-           product makes rather than a decoration. #}
-        <span class="chip" title="Every number on this page is a function of this seed">
-          <span class="chip__key">seed</span>{{ summary.seed }}
-        </span>
-        <span class="chip" title="When this run was computed">
-          <span class="chip__key">run</span>{{ summary.generated_at | when }}
-        </span>
-        <span class="chip chip--accent">
-          <span class="chip__key">at risk</span>{{ summary.at_risk | rupees }}
-        </span>
-      {% endif %}
+      <div class="topbar__controls">
+        {% block topbar_extra %}{% endblock %}
+
+        {# Only on screens that take an arm. A segmented control that changes
+           nothing when you press it is worse than no control at all, and the
+           experiment screen compares every arm at once so switching between
+           them there means nothing. #}
+        {% if arms_available %}
+          <div class="segment-group">
+            <span class="label">Arm</span>
+            <div class="segment" role="group" aria-label="Which arm to show">
+              {% for option in arms_available %}
+                <a class="segment__item {{ 'segment__item--on' if option.name == arm }}"
+                   href="{{ option.href }}"
+                   {% if option.name == arm %}aria-current="true"{% endif %}>{{ option.label }}</a>
+              {% endfor %}
+            </div>
+          </div>
+
+          <span class="topbar__rule" aria-hidden="true"></span>
+        {% endif %}
+
+        <div class="segment" role="group" aria-label="Colour theme">
+          <button class="segment__item" type="button" data-theme-set="light"
+                  title="Light" aria-label="Light theme">&#9788;</button>
+          <button class="segment__item" type="button" data-theme-set="dark"
+                  title="Dark" aria-label="Dark theme">&#9790;</button>
+        </div>
+      </div>
     </header>
 
     <main class="content" id="content" tabindex="-1">
@@ -110,14 +148,32 @@
     } catch (e) { /* storage unavailable; the default stands */ }
   }
 
-  function toggleTheme() {
-    const root = document.documentElement;
-    const next = root.dataset.theme === "light" ? "dark" : "light";
-    root.dataset.theme = next;
+  // Two buttons with a marked state rather than one button that toggles. A
+  // toggle cannot tell you which theme you are in without you reading the page
+  // behind it; a pair can.
+  function markTheme() {
+    const current = document.documentElement.dataset.theme || "light";
+    document.querySelectorAll("[data-theme-set]").forEach(button => {
+      const on = button.dataset.themeSet === current;
+      button.classList.toggle("segment__item--on", on);
+      button.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
+  function setTheme(next) {
+    document.documentElement.dataset.theme = next;
     try { localStorage.setItem("recoup-theme", next); } catch (e) {}
+    markTheme();
   }
 
   applyStoredTheme();
+
+  document.addEventListener("click", event => {
+    const button = event.target.closest("[data-theme-set]");
+    if (button) setTheme(button.dataset.themeSet);
+  });
+
+  markTheme();
 
   // ---------------------------------------------------------------------
   // Keyboard
@@ -127,7 +183,7 @@
   // everything here is a bare key, ignored the moment focus is in a field.
   // ---------------------------------------------------------------------
   (function () {
-    const GO_TO = { c: "/", q: "/queue", s: "/studio", a: "/audit", e: "/experiment", i: "/ai" };
+    const GO_TO = { c: "/control", q: "/queue", s: "/studio", a: "/audit", e: "/experiment", i: "/ai" };
     let awaitingDestination = false;
 
     function typing(el) {
