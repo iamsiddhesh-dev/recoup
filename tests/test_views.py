@@ -8,6 +8,9 @@ code? These tests pin the parts of that which are easy to break quietly.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -408,7 +411,7 @@ def test_the_ai_calls_page_shows_the_prompts_in_full(client):
 
 def test_the_control_room_carries_its_replay_frames(client):
     """Precomputed and embedded: scrubbing must not touch the network."""
-    response = client.get("/")
+    response = client.get("/control")
 
     assert response.status_code == 200
     assert 'id="replay-data"' in response.text
@@ -418,7 +421,7 @@ def test_the_control_room_carries_its_replay_frames(client):
 
 def test_the_replay_card_ships_hidden(client):
     """Progressive enhancement: no half-working slider if the script fails."""
-    response = client.get("/")
+    response = client.get("/control")
 
     assert '<section class="card" id="replay" hidden>' in response.text
 
@@ -427,7 +430,7 @@ def test_a_control_room_without_a_run_has_no_replay(tmp_path):
     from recoup.web.app import create_app
 
     client = TestClient(create_app(data_dir=tmp_path / "empty"))
-    response = client.get("/")
+    response = client.get("/control")
 
     assert response.status_code == 200
     assert "replay-data" not in response.text
@@ -529,15 +532,38 @@ def test_a_case_page_offers_the_next_case(client, ledger):
 
 
 def test_the_run_identity_is_on_every_screen(client):
-    """The seed used to sit in the rail footer, which is hidden below 900px."""
-    for path in ("/", "/queue", "/audit", "/experiment", "/ai", "/studio"):
+    for path in ("/control", "/queue", "/audit", "/experiment", "/ai", "/studio"):
         text = client.get(path).text
-        assert 'chip__key">seed' in text, f"{path} does not show the seed"
-        assert 'chip__key">run' in text, f"{path} does not show when it was run"
+        assert "<dt>seed</dt>" in text, f"{path} does not show the seed"
+        assert "<dt>computed</dt>" in text, f"{path} does not show when it was run"
+
+
+def test_the_run_identity_survives_a_narrow_window():
+    """It has twice been hidden below 900px, which is not "on every screen".
+
+    The identity block lives in the rail's footer, and the narrow-width rules
+    collapse the rail into a horizontal strip. Both times the quickest way to
+    make that strip fit was to hide the footer, and both times it silently broke
+    the one claim this product repeats on every page.
+    """
+    css = Path("recoup/web/static/components.css").read_text(encoding="utf-8")
+    # Only rules targeting the block itself. Hiding the small-caps heading
+    # *inside* it at narrow widths is fine; hiding the block is not.
+    rules = re.findall(r"(?m)^\s*\.rail__foot\s*\{([^}]*)\}", css)
+
+    assert rules, "the identity block has no styles at all"
+    for body in rules:
+        assert "display: none" not in body, "the run identity is hidden at some width"
+
+
+def test_every_screen_says_what_it_is_for(client):
+    """Six screens is enough that the title alone stops being self-explanatory."""
+    for path in ("/control", "/queue", "/audit", "/experiment", "/ai", "/studio"):
+        assert 'class="topbar__purpose"' in client.get(path).text, path
 
 
 def test_the_page_has_an_icon_and_a_description(client):
-    text = client.get("/").text
+    text = client.get("/control").text
 
     assert 'rel="icon"' in text
     assert 'name="description"' in text
@@ -559,7 +585,7 @@ def test_the_studio_shows_the_committed_run_before_anything_is_run(client):
 
 def test_every_screen_opens_with_a_skip_link(client):
     """The rail is six links deep before the content starts."""
-    for path in ("/", "/queue", "/audit", "/experiment", "/ai", "/studio"):
+    for path in ("/control", "/queue", "/audit", "/experiment", "/ai", "/studio"):
         text = client.get(path).text
         assert 'class="skip" href="#content"' in text, path
         assert 'id="content"' in text, path
@@ -567,7 +593,7 @@ def test_every_screen_opens_with_a_skip_link(client):
 
 def test_the_shortcuts_are_listed_on_the_page(client):
     """Shortcuts documented only in a README are shortcuts nobody uses."""
-    text = client.get("/").text
+    text = client.get("/control").text
 
     assert 'id="shortcuts"' in text
     assert "<kbd>j</kbd>" in text
@@ -598,7 +624,7 @@ def test_a_case_binds_stepping(client, ledger):
 
 def test_the_recovery_curve_states_its_scale(client):
     """A curve with no axis is decoration."""
-    text = client.get("/").text
+    text = client.get("/control").text
 
     assert 'class="replay__scale"' in text
     assert text.count('class="replay__grid') >= 2
@@ -611,3 +637,144 @@ def test_zero_money_is_dimmed_in_the_queue(client):
 
     assert "money--zero" in text
     assert "money--positive" in text
+
+
+# ---------------------------------------------------------------------------
+# The front door
+#
+# The landing page is the most public surface of the project — it is what a link
+# in a cold email opens. Every number on it is read from the committed run
+# rather than written into the copy, and these pin that: a page that quietly
+# stops agreeing with the run it describes is worse than no page.
+# ---------------------------------------------------------------------------
+
+
+def test_the_landing_page_leads_with_the_incremental_number(client, ledger):
+    from recoup.money import rupees
+    from recoup.web.views import build_experiment
+
+    response = client.get("/")
+    view = build_experiment(ledger)
+
+    assert response.status_code == 200
+    assert rupees(view.total_gain) in response.text
+    assert rupees(view.at_risk) in response.text
+    assert rupees(view.judgment_gain) in response.text
+
+
+def test_the_landing_page_states_the_caveat_next_to_the_claim(client):
+    """The decomposition is the point. A headline without it overclaims."""
+    text = client.get("/").text
+
+    assert "Where the lift comes from, honestly" in text
+    assert "Coverage" in text and "Judgment" in text
+    assert "A measured claim about a simulated world" in text
+
+
+def test_the_landing_page_offers_a_way_into_the_product(client):
+    text = client.get("/").text
+
+    assert 'href="/control"' in text
+    for path in ("/queue", "/studio", "/audit", "/experiment", "/ai"):
+        assert f'href="{path}"' in text, f"no way through to {path}"
+
+
+def test_the_landing_page_has_no_hand_written_money(client):
+    """Every rupee figure on the page has to come from the run.
+
+    The temptation on a landing page is to paste yesterday's headline into the
+    copy. Then the seed moves and the front door is the only surface still
+    quoting the old number.
+    """
+    source = Path("recoup/web/templates/landing.html").read_text(encoding="utf-8")
+    literals = re.findall(r"₹[\d,]+", source)
+
+    assert not literals, f"hard-coded money in the landing copy: {literals}"
+
+
+def test_the_landing_page_survives_having_no_run(tmp_path):
+    """A fresh clone serves this before it has ever run an evaluation."""
+    client = TestClient(create_app(data_dir=tmp_path / "empty"))
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "A failed payment is not a lost payment" in response.text
+
+
+# ---------------------------------------------------------------------------
+# The arm switch
+#
+# The top bar can put any arm on the Control Room. That is only safe if every
+# figure on the screen follows it — the first version changed the scoreboard and
+# left the replay curve plotting the agent underneath, which is not a partial
+# truth but a false screen.
+# ---------------------------------------------------------------------------
+
+
+def test_the_control_room_follows_the_arm_it_is_asked_for(client, run_dir):
+    from recoup.eval.store import load_summary
+    from recoup.money import rupees
+
+    contact = load_summary(run_dir).arm("contact_only")
+    text = client.get("/control?arm=contact_only").text
+
+    assert rupees(contact["recovered_paise"], precise_below=10_000) in text
+    assert "contact_only" in text
+
+
+def test_the_replay_follows_the_arm_too(client):
+    """The curve and the scoreboard above it must never show different arms.
+
+    `frames.json` is precomputed for the agent only, so an arm switch that reads
+    it unconditionally draws the agent's thirty days under another arm's
+    headline. The give-away is the retry count: contact_only has retries
+    disabled, so its replay must report none.
+    """
+    agent = client.get("/control?arm=recoup_agent").text
+    contact = client.get("/control?arm=contact_only").text
+
+    assert 'id="replay-data"' in contact
+    assert _frames_of(agent) != _frames_of(contact)
+
+
+def _frames_of(html: str) -> str:
+    start = html.index('id="replay-data"')
+    start = html.index(">", start) + 1
+    return html[start : html.index("</script>", start)]
+
+
+def test_the_split_is_only_claimed_for_the_agent(client):
+    """Coverage and judgment are defined *against* the other arms, not for them.
+
+    Showing that decomposition on contact_only would be reporting a number about
+    a different arm as though it belonged to the one on screen.
+    """
+    agent = client.get("/control?arm=recoup_agent").text
+    contact = client.get("/control?arm=contact_only").text
+
+    assert "Coverage" in agent and "Judgment" in agent
+    assert "is a property of" in contact
+    assert "legend__name" not in contact
+
+
+def test_the_arm_switch_is_absent_where_it_would_do_nothing(client):
+    """A segmented control that changes nothing is worse than no control."""
+    for path in ("/control", "/queue", "/audit"):
+        assert 'aria-label="Which arm to show"' in client.get(path).text, path
+
+    for path in ("/experiment", "/studio", "/ai"):
+        assert 'aria-label="Which arm to show"' not in client.get(path).text, path
+
+
+def test_the_rail_icons_are_one_size(client):
+    """Drawn, not typed.
+
+    The rail carried Unicode glyphs from four different blocks, which resolve to
+    four different fallback fonts and render at four different optical sizes. No
+    font-size fixes that; one viewBox does.
+    """
+    text = client.get("/control").text
+
+    assert text.count('class="rail__icon" viewBox="0 0 16 16"') == 6
+    for glyph in ("◉", "≡", "⚙", "⇄", "⊘", "◇"):
+        assert glyph not in text, f"{glyph} is still being typed rather than drawn"
