@@ -22,12 +22,13 @@ the arm you did not run.
 **The cost, stated plainly.** A simulated evaluation grades its own homework. Four things
 push back on that, in descending order of strength: the wall makes cheating structurally
 impossible rather than merely discouraged; the adapter seam means the same agent runs
-against real Razorpay test mode; every assumption in `world.yaml` is tagged `[OBSERVED]` or
-`[ASSUMPTION]` with a source; and the sensitivity sweep re-runs the whole evaluation at
+against real Razorpay test mode; every assumption in `world.yaml` carries a tag —
+`[DOCS]` where Razorpay publishes the value, `[OBSERVED]` where a real response
+confirmed it, `[ASSUMPTION]` where neither does; and the sensitivity sweep re-runs the whole evaluation at
 both ends of every load-bearing assumption.
 
 It is still a simulation. [FAILURES.md](FAILURES.md) records that the first archetype
-checked against live test mode was half wrong, and that is the honest prior for the twenty
+checked against live test mode was half wrong, and that is the honest prior for the 28
 that have not been checked.
 
 ## 2. Expected value, not a learned policy
@@ -120,7 +121,7 @@ signal that the remaining third is real.
 matrix in three, one per language. Responses are content-addressed and committed to
 `cache/llm/`.
 
-**Forced, not chosen.** A per-payment call needs ~1,500 requests per run — 75× Gemini
+**Forced, not chosen.** A per-payment call needs ~1,600 requests per run — 80× Gemini
 Flash's daily allowance, 6× Groq's token budget. The free tier made the naive design
 impossible, and the design it forced is better: batching gives the model the whole
 population at once, which is when a classifier is most consistent.
@@ -146,18 +147,42 @@ not a bug.
 
 ## 10. Server-rendered HTML with a hand-authored design system
 
-**Chosen:** FastAPI + Jinja2, ~1,000 lines of CSS tokens and components, two small inline
+**Chosen:** FastAPI + Jinja2, ~3,900 lines of CSS tokens and components, six small inline
 scripts. No npm, no build step, no framework.
 
 **Rejected:** React — two days of setup for a read-mostly application whose one interactive
 surface is a form that kicks off a background job. **Rejected:** Tailwind — its defaults
-produce the generic admin-panel look, and this is meant to read as an instrument.
+produce the generic admin-panel look, which is the one thing this cannot afford to be.
 **Dropped:** HTMX, Alpine and ECharts, all in the original plan and none of them needed once
-the pages existed. The charts are CSS and inline SVG; the two behaviours that need
-JavaScript have it.
+the pages existed. The charts are CSS and inline SVG; the six behaviours that need
+JavaScript have it — theme, keyboard navigation, the replay scrubber, queue row stepping,
+the studio's sliders and job polling, and the landing page's reveal.
 
 A judge clones this and runs it. Anything between `git clone` and a running product is
 a cost with no benefit.
+
+## 11. Paper, not a terminal
+
+**Chosen:** a warm paper ground, a serif for display, burnt sienna for emphasis.
+Light is the default; dark is the alternate.
+
+**Rejected:** the dark control room this shipped with for most of its life —
+`#0e1117` and a teal accent, styled after trading terminals. Two things were
+wrong with it. The smaller one is that this product is a *document*: arms tables,
+expected-value arithmetic, refusal lists, prose explanations. A dark instrument
+panel fights every one of those, and the screen a judge spends longest on is the
+one with the most reading in it.
+
+The larger one is that dark-plus-teal is the house style of every AI-generated
+dashboard on the internet. A project whose entire argument is "these numbers were
+measured carefully" cannot afford to look like it was produced in one prompt. The
+palette is not a matter of taste here; it is part of the claim.
+
+Two consequences worth stating. Recovered money is now green rather than the
+accent, because in the old palette the accent *was* revenue, so every accented
+border read faintly as money. And the one block that stays dark in both themes is
+the caveat on the landing page — the paragraph a reader is most likely to skip
+and least able to afford to.
 
 ---
 

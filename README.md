@@ -78,6 +78,10 @@ re-runs the entire evaluation — 14 full runs plus the base case.
 swing, the result depends most on the failure rate (₹2,06,191) and issuer downtime
 (₹1,62,871), and least on the annoyance penalty (₹5,047).
 
+Every run in the sweep uses the deterministic classifier with the model switched off, so
+fifteen evaluations cost no API quota and reproduce offline. The sweep's own baseline is
+therefore the ablation arm's, ₹238 above the headline judgment gain.
+
 Committed as [`reports/sensitivity.json`](reports/sensitivity.json) so nobody has to spend
 twenty minutes reproducing it before they can read it.
 
@@ -183,7 +187,7 @@ involved, so every case has one.
 ### Five model calls per run
 
 The free-tier budget settled the architecture before taste could. A per-payment call would
-need ~1,500 requests per run, which exceeds Gemini Flash's daily allowance by 75× and
+need ~1,600 requests per run, which exceeds Gemini Flash's daily allowance by 80× and
 Groq's token budget by 6×. **A per-payment LLM call here is not merely poor judgment; it
 is impossible.**
 
@@ -268,7 +272,7 @@ recoup/
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the shape, the four boundaries and what enforces
   each, and where to start reading.
-- [FAILURES.md](FAILURES.md) — ten things this project got wrong, how each was caught, and
+- [FAILURES.md](FAILURES.md) — eleven things this project got wrong, how each was caught, and
   what changed. The most useful file in the repo.
 - [DECISIONS.md](DECISIONS.md) — why it is built this way, and what was deliberately left
   out.
@@ -277,9 +281,9 @@ recoup/
 
 ## What this is not
 
-It is a measured claim about a simulated world, not a production result. One error
-archetype has been verified against live Razorpay test mode; twenty are assumptions, and
-the first one checked was half wrong. The simulator cannot model whether better copy
+It is a measured claim about a simulated world, not a production result. Of the 29
+error archetypes in `world.yaml`, one has been verified against live Razorpay test
+mode; the other 28 are assumptions, and the first one checked was half wrong. The simulator cannot model whether better copy
 recovers more money, so the copywriter is excluded from the ablation rather than credited
 with a lift it has no evidence for.
 

@@ -330,3 +330,59 @@ because it is measured on recovery.
 of it. `max_escalations_per_run` was doing exactly what it said and was still the
 wrong rule on its own, because the interesting failure was not "too many
 escalations" but "too few payments receiving them".
+
+---
+
+## The replay plotted one arm underneath another arm's headline
+
+**Found by:** adding an arm switch to the top bar and then looking at the screen
+it produced.
+
+The Control Room can now be pointed at any of the four arms. The scoreboard
+followed the switch immediately — it reads `summary.arm(arm)`. The thirty-day
+replay below it did not, because the frames it draws are precomputed:
+
+```python
+frames = load_frames(data_dir)   # written by `recoup demo`, for the agent
+```
+
+`data/frames.json` exists so a page load does not have to walk nine thousand
+events. It is written once, for `recoup_agent`. So selecting `contact_only` gave
+a screen whose headline said ₹4,14,362 from 222 payments, above a curve rising to
+₹5,41,724 and a readout reporting 552 retries — for an arm with retries disabled.
+
+This is not a stale number or a rounding difference. It is two arms presented as
+one, on the screen whose whole job is to say what a single arm earned. The fix is
+to fall back to a ledger scan whenever the selected arm is not the one the frames
+were built for, and to print the arm's name on the replay card so the two halves
+can never silently disagree again:
+
+```python
+frames = load_frames(data_dir) if agent["arm"] == AGENT else None
+if frames is None:
+    frames = to_payload(build_frames(ledger, agent["arm"]))
+```
+
+**Why nothing caught it.** Every test asserted on the default. `/control` with no
+query string was correct before the change and correct after it, and that is the
+only URL any test requested. The bug lived entirely in a state no test had ever
+constructed. The regression test now asks for two arms and asserts their frame
+payloads differ — which is a weaker assertion than checking exact figures, and a
+much harder one to satisfy by accident.
+
+**Four smaller ones from the same redesign**, none of which produced a wrong
+number but all of which produced a wrong screen:
+
+- `from_retryable` holds paise, not a count, so an "From retry" column rendered
+  money as a bare integer — `607235` where `₹6,07,235` was meant.
+- "Failures it resolved" read `unresolved` off the agent arm, where it is zero by
+  construction *because the model already resolved them*. The figure belongs on
+  the ablation arm, where it is 51.
+- A new coverage/judgment bar was named `.split`, which was already the class for
+  the experiment screen's two-block pool. The pool silently collapsed to nine
+  pixels tall.
+- The stylesheet cache-busting stamp was computed once at application startup.
+  That is correct in production and wrong in development, because the reloader
+  watches Python and not CSS — so every stylesheet edit served the previous file
+  under the previous stamp, which is precisely the failure the stamp exists to
+  prevent. It took three restarts to notice the tool was the thing lying.

@@ -3,10 +3,10 @@
 How Recoup is put together, and what each boundary is protecting.
 
 [README.md](README.md) has the result. [DECISIONS.md](DECISIONS.md) has the
-alternatives that were rejected. [FAILURES.md](FAILURES.md) has the ten things
+alternatives that were rejected. [FAILURES.md](FAILURES.md) has the eleven things
 this got wrong. This describes the shape.
 
-About 9,000 lines of Python, 6,600 of tests, 1,500 of CSS and 1,500 of templates.
+About 10,500 lines of Python, 7,200 of tests, 3,900 of CSS and 2,900 of templates.
 No npm, no build step, no services to stand up.
 
 ---
@@ -280,7 +280,7 @@ time, and the baseline once deferred its first retry forever and recovered ₹0.
 
 ## The web layer
 
-`recoup/web/`. FastAPI + Jinja2, hand-authored CSS, two small inline scripts. No
+`recoup/web/`. FastAPI + Jinja2, hand-authored CSS, six small inline scripts. No
 npm, no framework, no build step: anything between `git clone` and a running
 product is a cost with no benefit.
 
@@ -350,4 +350,4 @@ those fallbacks to the same validator the model's output passes.
 | what the model was actually asked | `cache/llm/`, or the AI Calls screen |
 | what this got wrong | [FAILURES.md](FAILURES.md) |
 
-487 tests. `pytest` runs them in about three minutes with no network and no keys.
+531 tests. `pytest` runs them in about five minutes with no network and no keys.
