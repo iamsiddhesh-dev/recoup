@@ -25,36 +25,39 @@
   </div>
 
   <div class="card__body">
-    <div class="stats">
-      <div class="stat stat--headline">
-        <span class="label">Calls</span>
-        <span class="stat__value">{{ view.calls | length }}</span>
-        <span class="stat__detail">for {{ view.per_payment_calls | int_comma }} failures</span>
+    {# Joined rather than four separate cards. The four numbers are one claim —
+       five calls, this many tokens, this many outputs, none refused — and cards
+       with gaps between them invite reading each on its own. #}
+    <section class="strip">
+      <div class="strip__cell strip__cell--accent">
+        <div class="label label--accent">Calls</div>
+        <div class="figure strip__figure">{{ view.calls | length }}</div>
+        <p class="strip__gloss">for {{ view.per_payment_calls | int_comma }} failures</p>
       </div>
-      <div class="stat">
-        <span class="label">Tokens, about</span>
-        <span class="stat__value">{{ view.total_tokens | int_comma }}</span>
-        <span class="stat__detail">prompt and response together</span>
+      <div class="strip__cell">
+        <div class="label">Naive design</div>
+        <div class="figure strip__figure">~{{ view.per_payment_calls | int_comma }}</div>
+        <p class="strip__gloss">{{ view.over_budget }}× the daily allowance</p>
       </div>
-      <div class="stat">
-        <span class="label">Outputs checked</span>
-        <span class="stat__value">{{ view.checked | int_comma }}</span>
-        <span class="stat__detail">re-validated on this page load</span>
+      <div class="strip__cell">
+        <div class="label">Outputs checked</div>
+        <div class="figure strip__figure">{{ view.checked | int_comma }}</div>
+        <p class="strip__gloss">re-validated on this page load</p>
       </div>
-      <div class="stat">
-        <span class="label">Refused</span>
-        <span class="stat__value {{ 'money--muted' if not view.rejected }}">{{ view.rejected }}</span>
-        <span class="stat__detail">
+      <div class="strip__cell">
+        <div class="label">Refused</div>
+        <div class="figure strip__figure {{ 'money--muted' if not view.rejected }}">{{ view.rejected }}</div>
+        <p class="strip__gloss">
           {% if view.unchecked %}
             discarded · {{ view.unchecked }} not checkable without a run
           {% else %}
             discarded, fallback used instead
           {% endif %}
-        </span>
+        </p>
       </div>
-    </div>
+    </section>
 
-    <p class="small dim" style="margin: var(--s4) 0 0; max-width: 76ch">
+    <p class="card__prose">
       One call per failure — the obvious design — would be
       <strong>{{ view.per_payment_calls | int_comma }}</strong> requests per run,
       about <strong>{{ view.over_budget }}×</strong> Gemini Flash's daily allowance of
@@ -65,76 +68,58 @@
       asked the same question a thousand times.
     </p>
 
-    <p class="small dim" style="margin: var(--s3) 0 0; max-width: 76ch">
-      Providers: {% for p in view.providers %}<span class="mono">{{ p }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
-      · Models: {% for m in view.models %}<span class="mono">{{ m }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+    <p class="card__prose card__prose--quiet">
+      These counts are not a record of what happened during the run. Each cached
+      response is put back through the same validator the run used, on every load
+      of this page. Weaken a check and these numbers move.
+    </p>
+    <p class="card__prose card__prose--quiet">
+      The plan called for a hosted tracing service. The response cache turned out to
+      be the better artifact: it holds the exact system prompt, the exact user
+      prompt and the exact response for every call, content-addressed and committed
+      to the repository. A dashboard behind a login is worse evidence than a file
+      the reader already has &mdash; about
+      {{ view.total_tokens | int_comma }} tokens of it, across
+      {% for p in view.providers %}<span class="mono">{{ p }}</span>{% if not loop.last %} and {% endif %}{% endfor %}.
     </p>
   </div>
 </section>
 
-{# -- why this is not Langfuse ------------------------------------------- #}
+{# -- the calls -----------------------------------------------------------
+   One card holding five collapsed rows rather than five cards each a screen
+   tall. The whole point of this page is that the number of calls is small
+   enough to list exhaustively, and a list you have to scroll for a minute does
+   not read as short. The counts are on the closed row, so a reader can see that
+   nothing was refused without opening anything. #}
 <section class="card">
   <div class="card__head">
-    <h2 class="card__title">Why this page instead of a tracing service</h2>
-  </div>
-  <div class="card__body">
-    <p class="small dim" style="margin: 0; max-width: 76ch">
-      The plan called for Langfuse. Then the response cache turned out to be the
-      better artifact: it holds the exact system prompt, the exact user prompt and
-      the exact response for every call, content-addressed and committed to the
-      repository. Anyone who clones this can read what the model was asked and what
-      it said — offline, with no account, years from now. A hosted dashboard behind
-      a login is worse evidence than a file the reader already has.
-    </p>
-    <p class="small dim" style="margin: var(--s3) 0 0; max-width: 76ch">
-      The counts above are not a record of what happened during the run. Each cached
-      response is put back through the same validator the run used, on every load of
-      this page. Weaken a check and these numbers move.
-    </p>
-  </div>
-</section>
-
-{# -- the calls ----------------------------------------------------------- #}
-{% for call in view.calls %}
-<section class="card">
-  <div class="card__head">
-    <h2 class="card__title">{{ call.what }}</h2>
-    <span class="topbar__spacer"></span>
-    <span class="tag tag--neutral mono">{{ call.provider }}</span>
-    <span class="card__note mono">{{ call.model }}</span>
+    <h2 class="card__title">The {{ view.calls | length }} calls</h2>
+    <span class="card__note mono">
+      {% for m in view.models %}{{ m }}{% if not loop.last %} · {% endif %}{% endfor %}
+    </span>
   </div>
 
-  <div class="card__body">
-    <div class="facts">
-      <div class="fact">
-        <span class="label">Purpose</span>
-        <span class="fact__value mono" style="font-size: var(--fs-sm)">{{ call.purpose }}</span>
-      </div>
-      <div class="fact">
-        <span class="label">Tokens, about</span>
-        <span class="fact__value">{{ call.tokens | int_comma }}</span>
-      </div>
-      <div class="fact">
-        <span class="label">Outputs</span>
-        <span class="fact__value">{{ call.checks | length }}</span>
-      </div>
-      <div class="fact">
-        <span class="label">Accepted</span>
-        <span class="fact__value money--positive">{{ call.accepted }}</span>
-      </div>
-      <div class="fact">
-        <span class="label">Refused</span>
-        <span class="fact__value {{ 'money--muted' if not call.rejected }}">
-          {{ call.rejected | length }}
+  <div class="calls">
+    {% for call in view.calls %}
+    <details class="call">
+      <summary class="call__summary">
+        <span class="call__index mono">{{ loop.index }}</span>
+        <span class="call__name">
+          <span class="call__what">{{ call.what }}</span>
+          <span class="call__purpose mono">{{ call.purpose }}</span>
         </span>
-      </div>
-      {% if call.unchecked %}
-        <div class="fact">
-          <span class="label">Not checked</span>
-          <span class="fact__value money--muted">{{ call.unchecked | length }}</span>
-        </div>
-      {% endif %}
-    </div>
+        <span class="call__counts">
+          <span class="mono call__tokens">{{ call.checks | length }} outputs</span>
+          <span class="tag {{ 'tag--recovered' if call.accepted else 'tag--neutral' }}">
+            {{ call.accepted }} accepted
+          </span>
+          <span class="mono call__refused {{ 'money--muted' if not call.rejected }}">
+            {{ call.rejected | length }} refused
+          </span>
+        </span>
+      </summary>
+
+      <div class="call__body">
 
     {% if call.rules %}
       <div class="rules">
@@ -161,28 +146,23 @@
       </div>
     {% endif %}
 
-    <details class="disclosure">
-      <summary class="disclosure__summary">
-        What it was asked, and what it said
-      </summary>
-      <div class="disclosure__body">
-        <div class="transcript">
-          <div class="transcript__label">system</div>
-          <pre class="transcript__text">{{ call.system }}</pre>
-        </div>
-        <div class="transcript">
-          <div class="transcript__label">prompt</div>
-          <pre class="transcript__text">{{ call.prompt }}</pre>
-        </div>
-        <div class="transcript">
-          <div class="transcript__label transcript__label--response">response</div>
-          <pre class="transcript__text">{{ call.response }}</pre>
-        </div>
+    <div class="transcript">
+      <div class="transcript__label">system</div>
+      <pre class="transcript__text">{{ call.system }}</pre>
+    </div>
+    <div class="transcript">
+      <div class="transcript__label">prompt</div>
+      <pre class="transcript__text">{{ call.prompt }}</pre>
+    </div>
+    <div class="transcript">
+      <div class="transcript__label transcript__label--response">response</div>
+      <pre class="transcript__text">{{ call.response }}</pre>
+    </div>
       </div>
     </details>
+    {% endfor %}
   </div>
 </section>
-{% endfor %}
 
 {% endif %}
 

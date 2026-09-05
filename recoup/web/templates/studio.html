@@ -5,31 +5,33 @@
 
 {% block content %}
 
-<div class="banner">
-  <div>
-    <div class="banner__title">This runs the real evaluation</div>
-    <p class="dim" style="margin: var(--s1) 0 0">
-      Changing a setting re-simulates the same month against the same failures and
-      the same random draws — only the agent's costs and caps move. It takes about
-      thirty seconds, because it is doing the work rather than estimating it.
-      The world is deliberately not adjustable: if you could change how often
-      payments fail, you could produce any number you liked.
-    </p>
-  </div>
-</div>
-
 <div class="grid-studio">
 
-  {# -- the knobs --------------------------------------------------------- #}
-  <section class="card">
+  {# -- the knobs ---------------------------------------------------------
+     The panel sticks. Reading the result means looking at a table on the right
+     while thinking about a slider on the left, and a configuration you have to
+     scroll back up to reach is one you stop adjusting. #}
+  <section class="card studio__panel">
     <div class="card__head">
       <h2 class="card__title">Configuration</h2>
-      <button class="button" type="button" id="reset">Reset</button>
+      <span class="tag tag--risk" id="dirty" hidden></span>
+      <button class="button" type="button" id="reset" style="margin-left: auto">Reset</button>
     </div>
 
     <div class="card__body">
-      <form id="studio-form" class="stack" style="gap: var(--s4)">
+      <form id="studio-form">
         {% for knob in knobs %}
+          {# Grouped by what the number *is*: a belief about value, a price, or a
+             rule. The last group is not a price at all — a cap that could be
+             outbid by a large enough expected value would not be a cap. #}
+          {% if loop.changed(knob.group) %}
+            <div class="knobs__group">
+              {{ knob.group }}
+              {%- if knob.group == "Compliance caps" %}
+                <span class="knobs__aside">· hard limits, not prices</span>
+              {%- endif %}
+            </div>
+          {% endif %}
           <div class="knob">
             <div class="knob__head">
               <label class="knob__label" for="{{ knob.key }}">{{ knob.label }}</label>
@@ -50,7 +52,7 @@
         {% endfor %}
 
         <button class="button button--primary" type="submit" id="run">
-          Run evaluation
+          Re-run evaluation &middot; ~30s
         </button>
       </form>
     </div>
@@ -60,8 +62,11 @@
   <section class="card">
     <div class="card__head">
       <h2 class="card__title">Result</h2>
-      <span class="card__note" id="status">
+      <span class="chip" id="status">
         {% if job %}{{ job.status }}{% else %}committed run{% endif %}
+      </span>
+      <span class="card__note">
+        the same failures, the same random draws &mdash; only the agent's settings move
       </span>
     </div>
 
@@ -76,12 +81,6 @@
          there was nothing to compare *to* until after you had already run. This
          is the "before". #}
       <div id="result-empty">
-        <p class="small dim" style="margin: 0 0 var(--s3)">
-          This is the committed run &mdash; what the settings on the left currently
-          produce. Move one and run it, and this table is replaced by the result
-          with a delta against these figures.
-        </p>
-
         <div class="table-scroll">
           <table class="table">
             <thead>
@@ -129,6 +128,27 @@
 
       <p class="small dim" id="failed" hidden></p>
     </div>
+
+    <p class="card__foot">
+      This is the committed run &mdash; what the settings on the left currently
+      produce. Move one and re-run, and this table is replaced by the new result
+      with a delta against these figures.
+    </p>
+  </section>
+
+  {# Why only half the model is adjustable. This used to be a banner across the
+     top of the screen, where it was the first thing read and the least useful;
+     it belongs under the result it qualifies. #}
+  <section class="note">
+    <div class="note__title">Why the world isn't adjustable</div>
+    <p class="note__body">
+      Only the agent's costs and caps are exposed here. If you could also change
+      how often payments fail, or how often a retry succeeds, you could produce
+      any number you liked &mdash; and the result would say nothing about the
+      agent. Each run re-simulates the same month against the same failures and
+      the same random draws, and takes about thirty seconds because it is doing
+      the work rather than estimating it.
+    </p>
   </section>
 
 </div>
@@ -168,16 +188,30 @@
     out.classList.toggle("knob__value--moved", value !== Number(input.dataset.default));
   };
 
+  const dirtyEl = document.getElementById("dirty");
+
+  // How many settings differ from the committed run. Without it you can scroll
+  // a moved slider out of view and forget the table below is answering a
+  // different question than the one on screen.
+  const countMoved = () => {
+    const moved = [...form.querySelectorAll('input[type="range"]')]
+      .filter(i => Number(i.value) !== Number(i.dataset.default)).length;
+    dirtyEl.hidden = moved === 0;
+    dirtyEl.textContent = moved === 1 ? "1 changed" : moved + " changed";
+  };
+
   form.querySelectorAll('input[type="range"]').forEach(input => {
     paint(input);
-    input.addEventListener("input", () => paint(input));
+    input.addEventListener("input", () => { paint(input); countMoved(); });
   });
+  countMoved();
 
   document.getElementById("reset").addEventListener("click", () => {
     form.querySelectorAll('input[type="range"]').forEach(input => {
       input.value = input.dataset.default;
       paint(input);
     });
+    countMoved();
   });
 
   const baselineFor = name => BASELINE.find(a => a.arm === name);

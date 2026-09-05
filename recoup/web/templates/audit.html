@@ -18,42 +18,51 @@
 
 {# -- integrity ---------------------------------------------------------- #}
 <section class="card">
+  {# The two claims that make everything below it worth reading, stated in the
+     header rather than buried under the funnel. #}
   <div class="card__head">
     <h2 class="card__title">The record</h2>
+    {% if audit.replay_ok %}
+      <span class="tag tag--recovered">hash verified on load</span>
+    {% else %}
+      <span class="tag tag--risk">hash not recorded</span>
+    {% endif %}
+    {% if audit.triggers %}
+      <span class="tag tag--recovered">append-only · {{ audit.triggers | length }} triggers</span>
+    {% else %}
+      <span class="tag tag--lost">not enforced</span>
+    {% endif %}
     <span class="card__note">
       what follows is only worth reading if this cannot have been edited
     </span>
   </div>
   <div class="card__body">
-    <div class="facts">
-      <div class="fact">
-        <span class="label">Events</span>
-        <span class="fact__value">{{ audit.total_events | int_comma }}</span>
-      </div>
-      <div class="fact">
-        <span class="label">Stream hash</span>
-        <span class="fact__value" style="font-size: var(--fs-sm)">{{ audit.digest }}…</span>
-      </div>
-      <div class="fact">
-        <span class="label">Matches hash at write</span>
-        <span class="fact__value" style="font-size: var(--fs-base)">
-          {% if audit.replay_ok %}
-            <span class="tag tag--recovered">verified</span>
-          {% else %}
-            <span class="tag tag--risk">not recorded</span>
-          {% endif %}
-        </span>
-      </div>
-      <div class="fact">
-        <span class="label">Append-only</span>
-        <span class="fact__value" style="font-size: var(--fs-base)">
-          {% if audit.triggers %}
-            <span class="tag tag--recovered">{{ audit.triggers | length }} triggers</span>
-          {% else %}
-            <span class="tag tag--lost">not enforced</span>
-          {% endif %}
-        </span>
-      </div>
+    {# The run as a funnel: what was seen, what was decided, what was refused,
+       what was executed, how it ended. Read left to right this is the whole
+       agent in seven numbers, and the gap between `decided` and `executed` is
+       the compliance gate doing its job. #}
+    {% set funnel = ["observed", "classified", "decided", "vetoed", "executed", "recovered", "stopped"] %}
+    <section class="strip">
+      {# Pipeline order, not alphabetical. Sorted by name this reads
+         classified/decided/executed/observed, which is nothing; in the order the
+         agent actually works it is the whole system, and the drop from `decided`
+         to `executed` is the compliance gate made visible. #}
+      {% for kind in funnel if kind in audit.by_kind %}
+        {% set count = audit.by_kind[kind] %}
+        <div class="strip__cell">
+          <div class="label {{ 'label--accent' if kind == 'vetoed' }}">{{ kind }}</div>
+          <div class="strip__value mono {{ 'money--accent' if kind == 'vetoed' }}">
+            {{ count | int_comma }}
+          </div>
+        </div>
+      {% endfor %}
+    </section>
+
+    <div class="ledgerline">
+      <span><span class="label">Events</span>
+        <span class="mono">{{ audit.total_events | int_comma }}</span></span>
+      <span><span class="label">Stream hash</span>
+        <span class="mono">{{ audit.digest }}…</span></span>
     </div>
 
     <p class="small dim" style="margin: var(--s4) 0 0">
@@ -65,52 +74,8 @@
       being append-only the first time someone is debugging at 1am.
     </p>
 
-    <div class="row small dim" style="margin-top: var(--s3); flex-wrap: wrap; gap: var(--s4)">
-      {% for kind, count in audit.by_kind | dictsort %}
-        <span><span class="mono">{{ count | int_comma }}</span> {{ kind }}</span>
-      {% endfor %}
-    </div>
   </div>
 </section>
-
-{# -- headline ----------------------------------------------------------- #}
-<section class="stats">
-  <div class="stat">
-    <span class="label">Actions refused</span>
-    <span class="stat__value">{{ audit.refusals | int_comma }}</span>
-    <span class="stat__detail">across {{ audit.payments_touched | int_comma }} payments</span>
-  </div>
-
-  <div class="stat">
-    <span class="label">Touched a rule, never recovered</span>
-    <span class="stat__value">{{ audit.abandoned_amount | rupees }}</span>
-    <span class="stat__detail">
-      {{ audit.abandoned_count | int_comma }} payments &mdash; not the cost of compliance
-    </span>
-  </div>
-
-  <div class="stat">
-    <span class="label">Blocked, recovered anyway</span>
-    <span class="stat__value">{{ audit.recovered_anyway_amount | rupees }}</span>
-    <span class="stat__detail">
-      {{ audit.recovered_anyway_count | int_comma }} payments that found another route
-    </span>
-  </div>
-</section>
-
-<div class="banner">
-  <div>
-    <div class="banner__title">The middle figure is not what compliance cost</div>
-    <p class="dim" style="margin: var(--s1) 0 0">
-      It is the money in payments where at least one action was refused
-      <em>and</em> which never recovered. For most of them the refusal was not the
-      reason: they had already exhausted their retries, or nothing left on the
-      table cleared the expected-value threshold. Separating those would need a
-      counterfactual run per payment, which is not something this screen can
-      honestly claim to have done.
-    </p>
-  </div>
-</div>
 
 {# -- rules -------------------------------------------------------------- #}
 <section class="card">
@@ -167,6 +132,34 @@
 </section>
 
 {# -- the list ----------------------------------------------------------- #}
+{# -- what the refusals cost, and what they did not ----------------------- #}
+<div class="grid-2">
+  <section class="card panel-note">
+    <div class="label">Money in payments with a refusal</div>
+    <div class="figure panel-note__figure">{{ audit.abandoned_amount | rupees }}</div>
+    <div class="panel-note__title">This is not what compliance cost</div>
+    <p class="panel-note__body">
+      It is the money in {{ audit.abandoned_count | int_comma }} payments where at
+      least one action was refused <em>and</em> which never recovered. For most of
+      them the refusal was not the reason: they had already exhausted their retries,
+      or nothing left on the table cleared the expected-value threshold. Separating
+      those would need a counterfactual run per payment, which is not something this
+      screen can honestly claim to have done.
+    </p>
+  </section>
+
+  <section class="card panel-note">
+    <div class="label">Refused, and recovered anyway</div>
+    <div class="figure panel-note__figure">{{ audit.recovered_anyway_amount | rupees }}</div>
+    <div class="panel-note__title">A refusal is not a lost payment</div>
+    <p class="panel-note__body">
+      {{ audit.recovered_anyway_count | int_comma }} payments had an action vetoed
+      and came back through another route &mdash; a later retry, a different channel,
+      an hour outside the quiet window. The gate removes an option, not the payment.
+    </p>
+  </section>
+</div>
+
 <section class="card">
   <div class="card__head">
     <h2 class="card__title">What we deliberately did not do</h2>
