@@ -204,11 +204,14 @@ the cache after changing a prompt.
 
 ## The product
 
-Seven screens, server-rendered, hand-authored design system, no build step.
+A landing page and seven screens, server-rendered, hand-authored design system,
+no build step. `/` is the front door — the claim, the decomposition and the
+caveat, with every figure on it read from the committed run rather than written
+into the copy. The product itself starts at `/control`.
 
 | Screen | What it is for |
 |---|---|
-| **Control Room** | The scoreboard: at risk, recovered, incremental, cost, net — with the coverage/judgment split stated rather than hidden. Scrub or play the thirty days back and watch the money accumulate |
+| **Control Room** (`/control`) | The scoreboard: at risk, recovered, incremental, cost, net — with the coverage/judgment split stated rather than hidden. Scrub or play the thirty days back and watch the money accumulate |
 | **Recovery Queue** | Every failure, filterable by cause, arm and outcome |
 | **Case Detail** | One payment end to end: the timeline, each decision's EV arithmetic as a checkable sum, the options it beat, and the actual message the customer received |
 | **Policy Studio** | Change a cost, a cap or a quiet-hour window, re-run the real evaluation, see the number move |
@@ -221,7 +224,7 @@ Seven screens, server-rendered, hand-authored design system, no build step.
 ```bash
 make setup      # install
 make eval       # the arms table — ~35s, no API key needed
-make demo       # run a batch, then serve the control room at :8000
+make demo       # run a batch, then serve the product at :8000
 make reproduce  # check every number in this README against a fresh run
 make sweep      # re-run the evaluation at 14 perturbed assumptions (~20 min)
 make test       # the wall, every compliance rule, the EV math
