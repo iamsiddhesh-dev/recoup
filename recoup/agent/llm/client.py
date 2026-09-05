@@ -37,10 +37,6 @@ strongly: a cached run touches no network at all. Installing a multi-gigabyte
 model server to duplicate what a few kilobytes of committed JSON already
 guarantees is not a tradeoff worth making.
 
-`RECOUP_LLM_DEV=1` swaps Gemini to the Gemma model, which allows 14,400
-requests/day against Flash's 20 — enough to iterate on a prompt without spending
-the budget reserved for the run whose cache gets committed. The model is part of
-the cache key, so a dev answer is never served in place of a Flash one.
 """
 
 from __future__ import annotations
@@ -363,14 +359,7 @@ def _is_transient(exc: Exception) -> bool:
 
 
 def _gemini_model() -> str:
-    """Flash for real runs, Gemma while iterating.
-
-    Flash allows 20 requests a day. Changing a prompt four times exhausts a fifth
-    of that, so development runs against Gemma (14,400/day on the same key) and the
-    committed cache is regenerated with Flash once the prompt has settled.
-    """
-    if os.environ.get("RECOUP_LLM_DEV", "").strip().lower() in ("1", "true", "yes"):
-        return os.environ.get("GEMINI_DEV_MODEL", "gemma-4-26b")
+    """The model is part of the cache key, so changing it invalidates a run."""
     return os.environ.get("GEMINI_MODEL", "gemini-3.7-flash")
 
 
