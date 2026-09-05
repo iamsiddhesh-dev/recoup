@@ -1,0 +1,797 @@
+/* ===========================================================================
+   Recoup — the front door
+   ===========================================================================
+   Loaded only by the landing page, on top of the same tokens and components the
+   product uses. The app is dense because it is operated; this page is wide and
+   quiet because it is read once, by someone deciding whether to keep reading.
+
+   Same palette, same faces, different rhythm. Sharing the tokens is what stops
+   the two from looking like two projects.
+   =========================================================================== */
+
+.page {
+  background: var(--ground);
+  overflow-x: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+   Site chrome
+   --------------------------------------------------------------------------- */
+
+.site {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--ground) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+
+.site__inner,
+.site-foot__inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 var(--s6);
+  height: 66px;
+  display: flex;
+  align-items: center;
+  gap: var(--s6);
+}
+
+.site__mark {
+  font-family: var(--font-display);
+  font-size: 23px;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.site__nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin-left: auto;
+}
+
+.site__nav a {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.site__nav a:hover {
+  color: var(--text);
+}
+
+/* Inline links in prose only. A bare `.band a` outranks `.cta__primary` — one
+   class plus a type selector beats one class — so it repainted the text inside
+   every button on the page. */
+.band a:not([class]) {
+  color: var(--accent);
+}
+
+.band a:not([class]):hover {
+  color: var(--accent-hover);
+}
+
+.site__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 9px var(--s4);
+  border-radius: var(--radius-pill);
+  background: var(--text);
+  color: var(--on-ink) !important;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.site__cta:hover {
+  background: var(--accent);
+}
+
+.site-foot {
+  max-width: 1120px;
+  margin: 112px auto 0;
+  padding: 0 var(--s6) 56px;
+}
+
+.site-foot__inner {
+  padding: 28px 0 0;
+  height: auto;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s5);
+}
+
+.site-foot__mark {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+}
+
+.site-foot .site__cta {
+  margin-left: auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Bands
+
+   One vertical rhythm for the whole page, so section spacing is never decided
+   twice. Everything is a `.band`; only the first and the tight ones differ.
+   --------------------------------------------------------------------------- */
+
+.band {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 120px var(--s6) 0;
+}
+
+.band--open  { padding-top: 112px; }
+.band--tight { padding-top: 80px; }
+
+/* Sections lift into place once, on first sight. `data-pending` is set by script
+   so a browser with JS disabled never has content stuck at zero opacity. */
+[data-pending] {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.75s cubic-bezier(0.2, 0.6, 0.2, 1),
+    transform 0.75s cubic-bezier(0.2, 0.6, 0.2, 1);
+}
+
+[data-revealed] {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Type
+   --------------------------------------------------------------------------- */
+
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px var(--s3) 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.stamp__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.lede {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(44px, 7.2vw, 92px);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  margin: 28px 0 0;
+  max-width: 16ch;
+}
+
+.standfirst {
+  font-size: 19px;
+  line-height: 1.6;
+  color: var(--body);
+  max-width: 62ch;
+  margin: 26px 0 0;
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.kicker--ruled {
+  display: block;
+  border-top: 1px solid var(--border);
+  padding-top: 22px;
+}
+
+.kicker--onslab { color: var(--accent); }
+
+.head {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(32px, 4.2vw, 50px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 20px 0 0;
+}
+
+.head--onslab { color: var(--surface); max-width: 22ch; }
+
+.body {
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--body);
+  margin: 22px 0 0;
+}
+
+.body--small {
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  margin-top: var(--s4);
+}
+
+.body--onslab { color: var(--border-strong); }
+
+.aside {
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 44ch;
+  margin: 0 0 4px auto;
+}
+
+.prose { max-width: 70ch; }
+
+.accent { color: var(--accent); }
+
+.undernote {
+  margin: var(--s4) 2px 0;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  color: var(--faint);
+}
+
+/* The command reads darker than the sentence carrying it. Inheriting `--faint`
+   made the one actionable string on the line the quietest thing on it. */
+.undernote .mono {
+  color: var(--body);
+}
+
+.pullquote {
+  font-family: var(--font-text);
+  font-size: 23px;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 20px 0 0;
+}
+
+/* A heading and a note on one baseline, over a rule. */
+.rule {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s6);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 22px;
+  margin-bottom: 36px;
+}
+
+.rule--top {
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+  padding: 46px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 48px;
+}
+
+/* ---------------------------------------------------------------------------
+   Scoreboard
+   --------------------------------------------------------------------------- */
+
+.scoreboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  border-radius: 22px;
+  box-shadow:
+    0 1px 2px rgba(27, 26, 23, 0.04),
+    0 18px 40px -28px rgba(27, 26, 23, 0.28);
+}
+
+.scoreboard__cell {
+  padding: 30px var(--s6);
+  border-right: 1px solid var(--border-soft);
+}
+
+.scoreboard__cell:last-child { border-right: none; }
+
+/* The incremental figure is the one the whole page is about, so it gets a wash
+   rather than a bigger size — the four numbers stay comparable. */
+.scoreboard__cell--accent {
+  background: linear-gradient(180deg, var(--accent-wash), transparent 70%);
+}
+
+.scoreboard__value {
+  font-size: 38px;
+  margin-top: var(--s3);
+}
+
+.scoreboard__value--accent { color: var(--accent); }
+
+.scoreboard__gloss {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin: 9px 0 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Panels, pairs, trios
+   --------------------------------------------------------------------------- */
+
+.table-card {
+  border-radius: 20px;
+  padding: 6px 30px 22px;
+  box-shadow:
+    0 1px 2px rgba(27, 26, 23, 0.04),
+    0 18px 40px -30px rgba(27, 26, 23, 0.26);
+}
+
+.table-card .table th:first-child,
+.table-card .table td:first-child { padding-left: 0; }
+
+.table-card .table th:last-child,
+.table-card .table td:last-child { padding-right: 0; }
+
+.table-card .table th {
+  background: transparent;
+  padding-top: 20px;
+  padding-bottom: 14px;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+  margin-top: 44px;
+}
+
+.pair--wide {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 56px;
+  align-items: start;
+  margin-top: 0;
+}
+
+.pair--slab {
+  gap: var(--s6);
+  margin-top: 26px;
+}
+
+.trio {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.panel {
+  padding: 30px var(--s6);
+}
+
+.panel--muted { background: var(--raised); }
+
+.panel__stat {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.panel__pct {
+  font-size: 52px;
+  color: var(--accent);
+}
+
+/* The retryable share is deliberately not the accent: it is the smaller, less
+   interesting half of the pool, and colouring both the same buries the point. */
+.panel__pct--cool { color: var(--slate); }
+
+.panel__caption {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.panel__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel__head--ruled {
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.panel__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--slate);
+}
+
+.panel__dot--accent { background: var(--accent); }
+
+.panel__label {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.panel__title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.ticks {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ticks li {
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--body);
+  padding-bottom: var(--s4);
+  margin-bottom: var(--s4);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.ticks li:last-child {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+/* ---------------------------------------------------------------------------
+   The slab
+
+   The one inverted block on the page, carrying the caveat. Dark because it is
+   the paragraph a reader is most likely to skip and least able to afford to.
+   --------------------------------------------------------------------------- */
+
+.slab {
+  background: var(--slab);
+  border-radius: 26px;
+  padding: clamp(36px, 5vw, 64px);
+  box-shadow: 0 30px 70px -40px rgba(27, 26, 23, 0.7);
+}
+
+.slab .kicker--onslab { color: var(--slab-kicker); }
+.slab .head--onslab { color: var(--slab-ink); }
+.slab .body--onslab { color: var(--slab-body); }
+.slab .mono { color: var(--slab-mono); }
+
+/* Fully rounded, and a wider gap than the in-card version: at 14px tall a 5px
+   radius reads as a chipped rectangle. */
+.sharebar--slab {
+  height: 14px;
+  gap: 4px;
+  margin-top: 44px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.sharebar--slab .sharebar__coverage {
+  background: var(--slab-coverage);
+  border-radius: var(--radius-pill);
+}
+
+.sharebar--slab .sharebar__judgment {
+  background: var(--slab-judgment);
+  border-radius: var(--radius-pill);
+}
+
+.slab__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+}
+
+.slab__value {
+  font-size: 34px;
+  color: var(--slab-ink);
+}
+
+.slab__value--accent { color: var(--slab-judgment-ink); }
+
+.slab__share {
+  font-size: var(--fs-md);
+  color: var(--slab-coverage);
+}
+
+.slab__share--accent { color: var(--slab-judgment); }
+
+.slab__name {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  margin-top: 10px;
+  color: var(--slab-name);
+}
+
+.slab .body--small.body--onslab {
+  color: var(--slab-gloss);
+  font-size: 14.5px;
+}
+
+/* ---------------------------------------------------------------------------
+   Formula, pills, quad, ledger box, terminal
+   --------------------------------------------------------------------------- */
+
+.formula {
+  margin-top: 38px;
+  padding: 34px clamp(var(--s5), 4vw, 44px);
+  overflow-x: auto;
+}
+
+.formula pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  line-height: 2;
+  color: var(--text);
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.pill {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  color: var(--body);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-pill);
+  padding: 7px var(--s4);
+}
+
+/* `stop` is the only action that ends a case, so it is the only filled pill. */
+.pill--solid {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--on-ink);
+}
+
+/* A grid whose gaps are the hairlines. One background behind, cells on top —
+   cheaper and more even than a border on each cell. */
+.quad {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-top: 36px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.quad--six {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+/* Same hairline technique as `.strip`: drawn by the cell, so a row that does
+   not divide evenly ends in empty paper rather than a slab of border colour. */
+.quad__cell {
+  padding: var(--s6) 30px;
+  display: block;
+  box-shadow: 2px 0 0 var(--border), 0 2px 0 var(--border);
+}
+
+.quad__cell--link {
+  transition: background 0.14s ease;
+}
+
+.quad__cell--link:hover {
+  background: var(--raised);
+}
+
+.quad__index {
+  font-size: var(--fs-sm);
+  color: var(--accent);
+}
+
+.quad__title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 23px;
+  line-height: 1.2;
+  margin: 14px 0 0;
+  color: var(--text);
+}
+
+.quad__cell--link .quad__title { margin-top: 0; }
+
+.ledgerbox {
+  padding: var(--s2) var(--s6) 28px;
+}
+
+.ledgerbox__head,
+.ledgerbox__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s3);
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.ledgerbox__head { padding: 22px 0 16px; }
+
+.ledgerbox__row--total {
+  padding: 22px 0 4px;
+  border-bottom: none;
+  font-weight: 600;
+}
+
+.ledgerbox__row--total .mono { font-size: 20px; }
+
+.terminal {
+  background: var(--slab);
+  border-radius: 18px;
+  padding: 28px 30px;
+  box-shadow: 0 20px 50px -34px rgba(27, 26, 23, 0.6);
+}
+
+.terminal__chrome {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 22px;
+}
+
+.terminal__chrome span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #3a3833;
+}
+
+.terminal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.5;
+  color: #f3f2ee;
+}
+
+.terminal__prompt,
+.terminal__note {
+  color: #6e6a61;
+}
+
+.terminal__note { margin-left: var(--s3); }
+
+/* The two commands worth running first. Lighter than the accent, because on a
+   near-black ground #a8531c is a smudge. */
+.terminal__hot { color: #e9a469; }
+
+.swings {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.swing__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--fs-base);
+  color: var(--body);
+  margin-bottom: var(--s2);
+}
+
+/* ---------------------------------------------------------------------------
+   Narrow
+   --------------------------------------------------------------------------- */
+
+@media (max-width: 760px) {
+  .band { padding: 72px var(--s5) 0; }
+
+  .site__inner,
+  .site-foot__inner { padding: 0 var(--s5); }
+
+  /* The section anchors go; the call to action stays. On a phone the whole page
+     is a scroll away anyway, and five jump links crowd out the one link that
+     actually leads somewhere. */
+  .site__nav a:not(.site__cta) { display: none; }
+
+  .scoreboard__cell {
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .rule { display: block; }
+  .aside { margin: var(--s4) 0 0; }
+}
+
+/* ---------------------------------------------------------------------------
+   Call to action
+
+   Two buttons, and the second one sends you to the caveat. Putting "then read
+   the caveat" beside "read the number" is the whole posture of the project in
+   one row: the argument is the deliverable, not the figure.
+   --------------------------------------------------------------------------- */
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  margin-top: 34px;
+}
+
+.cta__primary,
+.cta__ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px var(--s5);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
+
+.cta__primary {
+  background: var(--text);
+  color: var(--on-ink);
+}
+
+.cta__primary:hover {
+  background: var(--accent);
+  color: var(--on-ink);
+}
+
+.cta__ghost {
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+}
+
+.cta__ghost:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* The sweep bars step down in weight with their rank. Three bars in one colour
+   at three lengths makes the reader measure; three weights makes the ordering
+   the first thing they see and the lengths the second. */
+.bar--pill {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--sunken);
+}
+
+.bar--pill .bar__fill { border-radius: var(--radius-pill); }
+
+.bar__fill--rank1 { background: var(--accent); }
+.bar__fill--rank2 { background: var(--accent-strong); }
+.bar__fill--rank3 { background: var(--border-strong); }
+
+/* Where a product card leads, when it leads somewhere specific. Says which
+   payment opens, so the click is a known quantity rather than a leap. */
+.quad__hint {
+  margin: var(--s3) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--faint);
+}
+
+.quad__cell--link:hover .quad__hint {
+  color: var(--accent);
+}

@@ -1,0 +1,647 @@
+{# The front door.
+
+   Deliberately not built on base.html. The shell exists to move an operator
+   between six screens; this page has one job, which is to make an argument to
+   someone who has not yet agreed that the number means anything. A navigation
+   rail down the side of that would be furniture.
+
+   Every figure here is read from the committed run. Hand-written numbers on a
+   landing page go stale the first time the seed moves, and then the most public
+   surface of the project is the one lying about it. #}
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recoup — revenue recovery, measured</title>
+  <meta name="description" content="A revenue recovery agent for Indian payments. Measured incremental recovery against a holdout, with every decision explained and every refusal recorded.">
+  <meta property="og:title" content="Recoup — revenue recovery, measured">
+  <meta property="og:description" content="A failed payment is not a lost payment. Measured against a holdout, reproducible from a seed, with no API key.">
+  <meta property="og:type" content="website">
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%227%22%20fill%3D%22%23F3F2EE%22%2F%3E%3Cpath%20d%3D%22M6%2022.5%20L12.5%2016%20L18%2019.5%20L26%209.5%22%20fill%3D%22none%22%20stroke%3D%22%23A8531C%22%20stroke-width%3D%223.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2226%22%20cy%3D%229.5%22%20r%3D%222.8%22%20fill%3D%22%23A8531C%22%2F%3E%3C%2Fsvg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Instrument+Sans:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/static/tokens.css?v={{ assets() }}">
+  <link rel="stylesheet" href="/static/components.css?v={{ assets() }}">
+  <link rel="stylesheet" href="/static/landing.css?v={{ assets() }}">
+</head>
+<body class="page">
+
+<a class="skip" href="#top">Skip to content</a>
+
+<header class="site">
+  <div class="site__inner">
+    <a class="site__mark" href="#top">
+      Recoup<span class="rail__dot" aria-hidden="true"></span>
+    </a>
+    <nav class="site__nav">
+      <a href="#result">Result</a>
+      <a href="#method">Method</a>
+      <a href="#ai">Where AI is used</a>
+      <a href="#product">Product</a>
+      <a href="#reproduce">Reproduce it</a>
+      <a class="site__cta" href="/control">Open the product &rarr;</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+{# -- the claim ----------------------------------------------------------- #}
+<section class="band band--open">
+  {% if summary %}
+    <div class="stamp">
+      <span class="stamp__dot" aria-hidden="true"></span>
+      seed {{ summary.seed }} · deterministic · no API key
+    </div>
+  {% endif %}
+
+  <h1 class="lede">A failed payment is not a lost payment.</h1>
+
+  <p class="standfirst">
+    Recoup is a revenue recovery agent for Indian payments. It ingests payment,
+    mandate and invoice failures, decides and executes a recovery action for each
+    one, and measures how much money that decision actually earned &mdash; against
+    a holdout.
+  </p>
+
+  <div class="cta">
+    <a class="cta__primary" href="#result">Read the number</a>
+    <a class="cta__ghost" href="#honest">Then read the caveat</a>
+  </div>
+</section>
+
+{% if experiment %}
+{# -- the scoreboard ------------------------------------------------------ #}
+<section class="band band--tight" data-reveal>
+  <div class="card scoreboard">
+    <div class="scoreboard__cell">
+      <div class="label">At risk</div>
+      <div class="figure scoreboard__value">{{ experiment.at_risk | rupees }}</div>
+      <p class="scoreboard__gloss">
+        {{ experiment.observed | int_comma }} failures in a
+        {{ summary.batch_size | int_comma }}-payment batch
+      </p>
+    </div>
+
+    <div class="scoreboard__cell">
+      <div class="label">Recovered</div>
+      <div class="figure scoreboard__value">{{ agent.recovered_paise | rupees }}</div>
+      <p class="scoreboard__gloss">{{ agent.recovered_count | int_comma }} payments brought back</p>
+    </div>
+
+    <div class="scoreboard__cell scoreboard__cell--accent">
+      <div class="label label--accent">Incremental</div>
+      <div class="figure scoreboard__value scoreboard__value--accent">
+        {{ experiment.total_gain | rupees }}
+      </div>
+      <p class="scoreboard__gloss">over the naive fixed-retry schedule</p>
+    </div>
+
+    <div class="scoreboard__cell">
+      <div class="label">Spent · refused</div>
+      <div class="figure scoreboard__value">{{ agent.cost_paise | rupees }}</div>
+      <p class="scoreboard__gloss">
+        {{ agent.contacts | int_comma }} contacts ·
+        {{ agent.vetoes | int_comma }} actions refused
+      </p>
+    </div>
+  </div>
+  <p class="undernote">
+    Reproduce with <span class="mono">make eval</span> &mdash; no API key required.
+  </p>
+</section>
+
+{# -- the problem --------------------------------------------------------- #}
+<section class="band" data-reveal>
+  <div class="prose">
+    <div class="kicker">The problem</div>
+    <h2 class="head">Most merchants answer a decline with three attempts and a shrug.</h2>
+    <p class="body">
+      Issuer declines soften, balances get topped up, OTP sessions get abandoned and
+      retried, outages resolve. A fixed retry schedule &mdash; three attempts, fixed
+      intervals, no regard for <em>why</em> it failed &mdash; recovers some money,
+      burns customer goodwill on the rest, and cannot tell you which is which.
+    </p>
+  </div>
+
+  {% set pool = experiment.retryable_count + experiment.customer_count %}
+  <div class="pair">
+    <div class="card panel">
+      <div class="panel__stat">
+        <span class="figure panel__pct panel__pct--cool">
+          {{ (experiment.retryable_count / pool) | pct }}
+        </span>
+        <span class="panel__caption">can be charged again</span>
+      </div>
+      <p class="body body--small">
+        Razorpay cannot re-run a failed payment. Charging a customer who is not
+        present requires standing authorisation &mdash; an e-mandate, a tokenised
+        card, a UPI Autopay mandate.
+      </p>
+    </div>
+    <div class="card panel">
+      <div class="panel__stat">
+        <span class="figure panel__pct">
+          {{ (experiment.customer_count / pool) | pct }}
+        </span>
+        <span class="panel__caption">have to be asked</span>
+      </div>
+      <p class="body body--small">
+        For the rest the only recovery is to ask the customer again &mdash; which
+        makes the message the recovery attempt rather than a notification about one.
+      </p>
+    </div>
+  </div>
+</section>
+
+{# -- the arms ------------------------------------------------------------ #}
+<section class="band" id="result" data-reveal>
+  <div class="rule">
+    <div>
+      <div class="kicker">The result</div>
+      <h2 class="head">Four arms, one world.</h2>
+    </div>
+    <p class="aside">
+      Same failures, same order, same underlying luck. Outcomes are drawn from
+      <span class="mono">(seed, payment_id, attempt)</span>, so the arms differ only
+      by their decisions.
+    </p>
+  </div>
+
+  <div class="card table-card table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Arm</th>
+          <th class="money">Recovered</th>
+          <th class="num">Contacts</th>
+          <th class="money">Cost</th>
+          <th class="money">Net margin</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for arm in arms %}
+          <tr data-highlight="{{ 'true' if arm.arm == agent.arm else 'false' }}">
+            <td>
+              <div class="mono">{{ arm.arm }}</div>
+              <div class="small dim">{{ arm.description }}</div>
+            </td>
+            <td class="money">{{ arm.recovered_paise | rupees }}</td>
+            <td class="num">{{ arm.contacts | int_comma }}</td>
+            <td class="money money--muted">{{ arm.cost_paise | rupees }}</td>
+            <td class="money">{{ arm.net_paise | rupees }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{# -- the caveat, before anyone else raises it ---------------------------- #}
+<section class="band" id="honest" data-reveal>
+  <div class="slab">
+    <div class="kicker kicker--onslab">Where the lift comes from, honestly</div>
+    <h2 class="head head--onslab">
+      {{ experiment.coverage_share | pct }} of the lift is just realising you have to ask.
+    </h2>
+    <p class="body body--onslab">
+      <span class="mono">{{ contact.arm }}</span> exists to make the agent's
+      contribution decomposable, and the decomposition is not especially flattering.
+      A single headline number would have quietly claimed all of it for the policy
+      engine.
+    </p>
+
+    <div class="sharebar sharebar--slab">
+      <div class="sharebar__coverage" style="flex: {{ (experiment.coverage_share * 100) | round(1) }}"></div>
+      <div class="sharebar__judgment" style="flex: {{ (experiment.judgment_share * 100) | round(1) }}"></div>
+    </div>
+
+    <div class="pair pair--slab">
+      <div>
+        <div class="slab__row">
+          <span class="figure slab__value">{{ experiment.coverage_gain | rupees }}</span>
+          <span class="mono slab__share">{{ experiment.coverage_share | pct }}</span>
+        </div>
+        <div class="slab__name">Coverage</div>
+        <p class="body body--small body--onslab">
+          Contacting at all, versus retrying blindly. Available to anyone who
+          realises most failed payments cannot be retried.
+        </p>
+      </div>
+      <div>
+        <div class="slab__row">
+          <span class="figure slab__value slab__value--accent">{{ experiment.judgment_gain | rupees }}</span>
+          <span class="mono slab__share slab__share--accent">{{ experiment.judgment_share | pct }}</span>
+        </div>
+        <div class="slab__name">Judgment</div>
+        <p class="body body--small body--onslab">
+          Which channel, when, to whom, and when to stop.
+          {{ agent.recovered_count | int_comma }} recoveries from
+          {{ agent.contacts | int_comma }} contacts, against
+          {{ contact.recovered_count | int_comma }} from
+          {{ contact.contacts | int_comma }}.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# -- the ablation -------------------------------------------------------- #}
+<section class="band" data-reveal>
+  <div class="pair pair--wide">
+    <div class="prose">
+      <div class="kicker">The ablation</div>
+      <h2 class="head">
+        What the LLM contributes:
+        <span class="accent">{{ experiment.llm_gain | rupees }}</span>
+      </h2>
+      <p class="body">
+        Measured, not assumed. The model is not wrong &mdash; it classifies every
+        unresolved symptom correctly, checked against ground truth it cannot see.
+        It is simply not worth much <em>here</em>: most of the failures it resolves
+        are bank and wallet outages where the correct action is &ldquo;do not
+        chase&rdquo;.
+      </p>
+      <p class="body">
+        This is reported rather than fixed. The obvious way to manufacture a win
+        would be to degrade the default until the model looks necessary; the number
+        that produced would mean nothing.
+      </p>
+    </div>
+
+    <div class="card ledgerbox">
+      <div class="ledgerbox__head">
+        <span class="label">Arm</span>
+        <span class="label">Recovered · contacts</span>
+      </div>
+      {% if ablation %}
+        <div class="ledgerbox__row">
+          <span class="mono">{{ ablation.arm }}</span>
+          <span class="mono">{{ ablation.recovered_paise | rupees }} · {{ ablation.contacts }}</span>
+        </div>
+      {% endif %}
+      <div class="ledgerbox__row">
+        <span class="mono">{{ agent.arm }}</span>
+        <span class="mono">{{ agent.recovered_paise | rupees }} · {{ agent.contacts }}</span>
+      </div>
+      <div class="ledgerbox__row ledgerbox__row--total">
+        <span>Difference</span>
+        <span class="mono accent">{{ experiment.llm_gain | rupees }}</span>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# -- how it decides ------------------------------------------------------ #}
+<section class="band" id="method" data-reveal>
+  <div class="prose">
+    <div class="kicker">How it decides</div>
+    <h2 class="head">Each failure is a decision under uncertainty with a cost attached.</h2>
+    <p class="body">
+      For every failure Recoup classifies a root cause from Razorpay's documented
+      error taxonomy, then picks the action with the highest expected value.
+    </p>
+  </div>
+
+  <div class="card formula">
+<pre>EV(action) = P(recover | cause, issuer, attempt_n, hour, context)
+             × amount × margin
+           <span class="accent">−</span> cost(action)
+           <span class="accent">−</span> annoyance_penalty(customer_contact_history)</pre>
+  </div>
+
+  <div class="pills">
+    <span class="pill">retry now</span>
+    <span class="pill">retry at a modelled better time</span>
+    <span class="pill">switch payment method</span>
+    <span class="pill">nudge — channel, language</span>
+    <span class="pill">escalate to a human</span>
+    <span class="pill pill--solid">stop</span>
+  </div>
+
+  <p class="body prose">
+    Every choice then passes a compliance gate with veto power: attempt caps, quiet
+    hours, contact intervals, consent checks, mandate and risk hard-stops. The gate
+    runs <em>after</em> the policy and can only subtract. Compliance is never a term
+    inside the expected-value sum, because a rule that can be outbid by a large
+    enough number is not a rule.
+  </p>
+</section>
+
+{# -- four decisions ------------------------------------------------------ #}
+<section class="band" data-reveal>
+  <div class="kicker kicker--ruled">Four design decisions</div>
+  <div class="quad">
+    <div class="quad__cell">
+      <div class="quad__index mono">01</div>
+      <h3 class="quad__title">A hard wall between the world and the agent</h3>
+      <p class="body body--small">
+        The simulator holds all ground truth; the agent sees only webhook-shaped
+        events. A test AST-scans every module under <span class="mono">recoup/agent/</span>
+        for imports of <span class="mono">recoup.world</span> and fails the build.
+      </p>
+    </div>
+    <div class="quad__cell">
+      <div class="quad__index mono">02</div>
+      <h3 class="quad__title">An adapter seam, so the agent is portable</h3>
+      <p class="body body--small">
+        Simulated and test-mode adapters implement one protocol. The test-mode
+        adapter refuses to initialise against a key that is not
+        <span class="mono">rzp_test_</span>, so a live money action is structurally
+        impossible.
+      </p>
+    </div>
+    <div class="quad__cell">
+      <div class="quad__index mono">03</div>
+      <h3 class="quad__title">A holdout, and then a second holdout</h3>
+      <p class="body body--small">
+        One baseline is what merchants do. The other isolates how much of the lift
+        is coverage rather than judgment. Both exist to make the headline number
+        smaller and truer.
+      </p>
+    </div>
+    <div class="quad__cell">
+      <div class="quad__index mono">04</div>
+      <h3 class="quad__title">An append-only ledger</h3>
+      <p class="body body--small">
+        Every observation, decision, veto, execution and outcome is one immutable
+        row &mdash; SQLite triggers reject <span class="mono">UPDATE</span> and
+        <span class="mono">DELETE</span> outright. The audit screen re-hashes each
+        stream in front of you.
+      </p>
+    </div>
+  </div>
+</section>
+
+{# -- where AI is used ---------------------------------------------------- #}
+<section class="band" id="ai" data-reveal>
+  <div class="prose">
+    <div class="kicker">Where AI is used, and where it deliberately is not</div>
+    <h2 class="head">The split is not stylistic.</h2>
+    <p class="body">
+      Razorpay documents <span class="mono">source</span> and
+      <span class="mono">step</span> exhaustively per payment method but leaves
+      <span class="mono">reason</span> open-ended. The deterministic classifier keys
+      on what is enumerable; the model handles only what is genuinely novel.
+    </p>
+  </div>
+
+  <div class="pair">
+    <div class="card panel">
+      <div class="panel__head">
+        <span class="panel__dot panel__dot--accent" aria-hidden="true"></span>
+        <span class="panel__label">LLM — yes</span>
+      </div>
+      <ul class="ticks">
+        <li>Unmapped free-text error → taxonomy, plus a proposed mapping rule for human review</li>
+        <li>Recovery copy, generated as templates in English, Hinglish and Hindi, behind a validator</li>
+        <li>A case narrated in prose for the merchant, from facts already in the ledger</li>
+      </ul>
+    </div>
+    <div class="card panel panel--muted">
+      <div class="panel__head">
+        <span class="panel__dot" aria-hidden="true"></span>
+        <span class="panel__label">LLM — no. Deterministic by design</span>
+      </div>
+      <ul class="ticks">
+        <li>Retry timing → empirical success model (cause × issuer × hour)</li>
+        <li>Action selection → expected-value argmax</li>
+        <li>Compliance → hard rules, no model in the loop</li>
+        <li>All money math → arithmetic</li>
+        <li>Root-cause mapping for known error codes → lookup table</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="trio">
+    <div class="card panel">
+      <h3 class="panel__title">It writes templates, never numbers</h3>
+      <p class="body body--small">
+        It produces <span class="mono">"Your payment of {amount} did not go
+        through"</span>; code substitutes the real value at send time. A model that
+        never sees an amount cannot state the wrong one. Any run of two or more
+        digits is rejected.
+      </p>
+    </div>
+    <div class="card panel">
+      <h3 class="panel__title">Phishing-shaped copy is refused</h3>
+      <p class="body body--small">
+        A payment-failure message asking for an OTP, CVV or card number is
+        indistinguishable from fraud. Copy mentioning a credential is discarded and
+        a hand-written fallback used instead, with the rejection recorded.
+      </p>
+    </div>
+    <div class="card panel">
+      <h3 class="panel__title">Five model calls per run</h3>
+      <p class="body body--small">
+        A per-payment call would need ~1,500 requests per run &mdash; roughly 75×
+        Gemini Flash's daily allowance. Calls are batched instead, and responses are
+        content-addressed and committed, so the numbers reproduce with no key and no
+        network.
+      </p>
+    </div>
+  </div>
+</section>
+
+{# -- sensitivity --------------------------------------------------------- #}
+{% if sweep %}
+<section class="band" data-reveal>
+  <div class="pair pair--wide">
+    <div class="prose">
+      <div class="kicker">Sensitivity</div>
+      <h2 class="head">Does the claim survive its own assumptions?</h2>
+      <p class="body">
+        <span class="mono">make sweep</span> moves each load-bearing assumption to
+        both ends of a plausible band and re-runs the whole evaluation. The agent
+        beats both other arms at every point.
+      </p>
+    </div>
+
+    <div class="card panel">
+      <div class="panel__head panel__head--ruled">
+        <span class="body body--small">Judgment gain across the sweep</span>
+        <span class="mono">{{ sweep.base.judgment | rupees }} base</span>
+      </div>
+      <div class="swings">
+        {% for band in bands %}
+          <div class="swing">
+            <div class="swing__row">
+              <span>{{ band.label }}</span>
+              <span class="mono">{{ band.span | rupees }}</span>
+            </div>
+            <div class="bar bar--pill">
+              <div class="bar__fill bar__fill--rank{{ loop.index }}"
+                   style="width: {{ band.width_pct }}%"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="body body--small">
+        How far the judgment gain moves when each assumption is taken to either end
+        of its band, everything else held still.
+      </p>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# -- the product --------------------------------------------------------- #}
+<section class="band" id="product" data-reveal>
+  <div class="rule">
+    <div>
+      <div class="kicker">The product</div>
+      <h2 class="head">Seven screens.</h2>
+    </div>
+    <p class="aside">Server-rendered, hand-authored design system, no build step.</p>
+  </div>
+
+  <div class="quad quad--six">
+    <a class="quad__cell quad__cell--link" href="/control">
+      <h3 class="quad__title">Control Room</h3>
+      <p class="body body--small">The scoreboard, with the coverage/judgment split stated rather than hidden. Scrub the thirty days back and watch the money accumulate.</p>
+    </a>
+    <a class="quad__cell quad__cell--link" href="/queue">
+      <h3 class="quad__title">Recovery Queue</h3>
+      <p class="body body--small">Every failure, filterable by cause, arm and outcome.</p>
+    </a>
+    {# Straight into a real case rather than into the list one lives in. This is
+       the screen that does the most work in a pitch, and the reader should not
+       have to find their own way to it through 1,605 rows. #}
+    <a class="quad__cell quad__cell--link"
+       href="{{ '/case/' ~ headline_case.payment_id ~ '?arm=' ~ agent.arm if headline_case else '/queue' }}">
+      <h3 class="quad__title">Case Detail</h3>
+      <p class="body body--small">One payment end to end: the timeline, each decision's EV arithmetic as a checkable sum, the options it beat, and the message the customer received.</p>
+      {% if headline_case %}
+        <p class="quad__hint mono">
+          opens {{ headline_case.payment_id }} &middot; {{ headline_case.amount | rupees }}
+          &middot; the largest failure in the run
+        </p>
+      {% endif %}
+    </a>
+    <a class="quad__cell quad__cell--link" href="/studio">
+      <h3 class="quad__title">Policy Studio</h3>
+      <p class="body body--small">Change a cost, a cap or a quiet-hour window, re-run the real evaluation, see the number move.</p>
+    </a>
+    <a class="quad__cell quad__cell--link" href="/experiment">
+      <h3 class="quad__title">Experiment</h3>
+      <p class="body body--small">The arms table, the coverage/judgment decomposition, the LLM ablation, and the sensitivity sweep.</p>
+    </a>
+    <a class="quad__cell quad__cell--link" href="/audit">
+      <h3 class="quad__title">Audit &amp; Refusals</h3>
+      <p class="body body--small">The ledger, its digest verified live, and every action compliance refused, grouped by rule.</p>
+    </a>
+    <a class="quad__cell quad__cell--link" href="/ai">
+      <h3 class="quad__title">AI Calls</h3>
+      <p class="body body--small">Every model call in full — prompt and response — with each output re-validated on load.</p>
+    </a>
+  </div>
+</section>
+
+{# -- quickstart ---------------------------------------------------------- #}
+<section class="band" id="reproduce" data-reveal>
+  <div class="pair pair--wide">
+    <div class="prose">
+      <div class="kicker">Quickstart</div>
+      <h2 class="head">Run it if you believe none of the above.</h2>
+      <p class="body">
+        <span class="mono">make reproduce</span> re-runs the evaluation from the
+        committed seed and compares every recorded figure &mdash; every headline
+        here, plus a SHA-256 digest of each arm's complete event stream. It exits
+        non-zero on any difference.
+      </p>
+      <p class="body body--small">
+        A matching digest means every decision was identical in the same order,
+        which is stronger than matching totals: two runs can recover the same amount
+        having done different things.
+      </p>
+    </div>
+
+    <div class="terminal">
+      <div class="terminal__chrome" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="terminal__body">
+        <div><span class="terminal__prompt">$ </span>make setup<span class="terminal__note"># install</span></div>
+        <div><span class="terminal__prompt">$ </span><span class="terminal__hot">make eval</span><span class="terminal__note"># the arms table — no key</span></div>
+        <div><span class="terminal__prompt">$ </span>make demo<span class="terminal__note"># run a batch, serve at :8000</span></div>
+        <div><span class="terminal__prompt">$ </span><span class="terminal__hot">make reproduce</span><span class="terminal__note"># check every number above</span></div>
+        <div><span class="terminal__prompt">$ </span>make sweep<span class="terminal__note"># perturbed assumptions</span></div>
+        <div><span class="terminal__prompt">$ </span>make test<span class="terminal__note"># the wall, the rules, the EV math</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# -- what this is not ---------------------------------------------------- #}
+<section class="band" data-reveal>
+  <div class="rule rule--top">
+    <div class="prose">
+      <div class="kicker">What this is not</div>
+      <p class="pullquote">
+        A measured claim about a simulated world, not a production result. One error
+        archetype has been verified against live Razorpay test mode; twenty are
+        assumptions, and the first one checked was half wrong.
+      </p>
+    </div>
+    <div class="prose">
+      <p class="body">
+        The simulator cannot model whether better copy recovers more money, so the
+        copywriter is excluded from the ablation rather than credited with a lift it
+        has no evidence for.
+      </p>
+      <p class="body">
+        The honest summary is that the <em>method</em> &mdash; holdout, ablation,
+        sensitivity sweep, and a wall that makes the agent unable to cheat &mdash;
+        would survive being pointed at real data. The numbers would move.
+      </p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-foot">
+  <div class="site-foot__inner">
+    <span class="site-foot__mark">Recoup</span>
+    <span class="dim small">Razorpay Buildathon · MIT licensed</span>
+    <a class="site__cta" href="/control">Open the product &rarr;</a>
+  </div>
+</footer>
+
+<script>
+  // Theme choice is shared with the app, so the front door does not flash a
+  // different colour scheme than the screen it hands you to.
+  try {
+    const saved = localStorage.getItem("recoup-theme");
+    if (saved) document.documentElement.dataset.theme = saved;
+  } catch (e) { /* storage unavailable; the default stands */ }
+
+  // Sections rise as they come into view. Skipped entirely under reduced motion
+  // rather than shortened — the point of the setting is to not move.
+  (function () {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!("IntersectionObserver" in window)) return;
+
+    const seen = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.dataset.revealed = "1";
+        seen.unobserve(entry.target);
+      });
+    }, { threshold: 0.06, rootMargin: "0px 0px -6% 0px" });
+
+    document.querySelectorAll("[data-reveal]").forEach(el => {
+      el.dataset.pending = "1";
+      seen.observe(el);
+    });
+  })();
+</script>
+
+</body>
+</html>
