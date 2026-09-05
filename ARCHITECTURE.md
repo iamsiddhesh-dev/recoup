@@ -304,7 +304,8 @@ one that feels like a form.
 
 | Screen | Reads | Shows |
 |---|---|---|
-| Control Room | `run.json` + `frames.json` | the scoreboard, and thirty days replayable on a slider |
+| Landing (`/`) | `run.json` + ledger | the claim, decomposed, with every figure read from the run |
+| Control Room (`/control`) | `run.json` + `frames.json` | the scoreboard, and thirty days replayable on a slider |
 | Recovery Queue | ledger scan | every failure, filterable |
 | Case Detail | `story_of` | timeline, EV arithmetic as a checkable sum, the message sent, the plain-language version |
 | Policy Studio | background job | change a cost, re-run, watch the number move |
