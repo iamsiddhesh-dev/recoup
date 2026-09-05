@@ -438,12 +438,12 @@
       </p>
     </div>
     <div class="card panel">
-      <h3 class="panel__title">Five model calls per run</h3>
+      <h3 class="panel__title">{{ calls.calls | length }} model calls per run</h3>
       <p class="body body--small">
-        A per-payment call would need ~1,500 requests per run &mdash; roughly 75×
-        Gemini Flash's daily allowance. Calls are batched instead, and responses are
-        content-addressed and committed, so the numbers reproduce with no key and no
-        network.
+        A per-payment call would need {{ calls.per_payment_calls | int_comma }}
+        requests per run &mdash; {{ calls.over_budget }}× Gemini Flash's daily
+        allowance. Calls are batched instead, and responses are content-addressed
+        and committed, so the numbers reproduce with no key and no network.
       </p>
     </div>
   </div>
@@ -584,9 +584,10 @@
     <div class="prose">
       <div class="kicker">What this is not</div>
       <p class="pullquote">
-        A measured claim about a simulated world, not a production result. One error
-        archetype has been verified against live Razorpay test mode; twenty are
-        assumptions, and the first one checked was half wrong.
+        A measured claim about a simulated world, not a production result. Of the 29
+        error archetypes this simulates, one has been verified against live Razorpay
+        test mode; the other 28 are assumptions, and the first one checked was half
+        wrong.
       </p>
     </div>
     <div class="prose">

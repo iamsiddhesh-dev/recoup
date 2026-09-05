@@ -262,6 +262,15 @@
         re-tuning it at each point would answer an easier question than the one
         being asked.
       </p>
+      <p class="card__prose card__prose--quiet">
+        Every run in the sweep uses the deterministic classifier, the model
+        switched off, so fifteen evaluations need no API quota and reproduce
+        offline. That is why the baseline above reads
+        <span class="mono">{{ sweep.base.judgment | rupees }}</span> rather than the
+        <span class="mono">{{ experiment.judgment_gain | rupees }}</span> in the
+        decomposition further up: the difference is exactly the ablation gap, and
+        the sweep is measuring the arm that does not depend on a network call.
+      </p>
 
       {% if inverted %}
         <p class="card__prose card__prose--quiet">

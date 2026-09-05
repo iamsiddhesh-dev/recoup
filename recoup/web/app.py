@@ -375,6 +375,10 @@ def create_app(
                 "arms": arms,
                 "agent": by_name.get(AGENT),
                 "headline_case": headline_case,
+                # The batching arithmetic on this page is read from the cache
+                # rather than typed, so it cannot drift away from the AI Calls
+                # screen that shows the same two numbers.
+                "calls": build_ai_calls(),
                 "contact": by_name.get(CONTACT),
                 "ablation": by_name.get(ABLATION),
                 "sweep": sweep,
